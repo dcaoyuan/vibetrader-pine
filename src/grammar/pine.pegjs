@@ -1,6 +1,6 @@
 {{
   // =========================================================
-  // Pine Script v6 Grammar (Final Fix: For-In Tuple)
+  // Pine Script v6 Grammar (Final Fix: Type Templates)
   // =========================================================
 
   function extractList(list, index) {
@@ -86,7 +86,7 @@ Statement
   / EnumDeclaration     
   / MethodDeclaration   
   / FunctionDeclaration 
-  / TupleDeclaration    // 独立的元组赋值语句 [a,b] = call()
+  / TupleDeclaration
   / VariableDeclaration 
   / AssignmentStatement 
   / ControlStructure    
@@ -157,12 +157,10 @@ AssignmentStatement
 AssignmentOperator
   = ":=" / "+=" / "-=" / "*=" / "/=" / "%="
 
-// --- 元组声明 (用于语句：包含赋值号) ---
 TupleDeclaration
   = pattern:TuplePattern _ "=" _ init:Initializer
     { return { type: "TupleDeclaration", elements: pattern.elements, init: init }; }
 
-// [新增] 元组模式 (用于 For 循环等：不含赋值号)
 TuplePattern
   = "[" __ elements:TupleElementList __ "]"
     { return { type: "TuplePattern", elements: elements }; }
@@ -266,7 +264,6 @@ ExpressionList
   = head:Expression tail:(_ "," _ Expression)*
     { return [head].concat(extractList(tail, 3)); }
 
-// [修复] ForIn 循环支持 TuplePattern (无赋值号) 或 Identifier
 ForStatement
   = "for" _ counter:Identifier _ "=" _ start:Expression _ "to" _ end:Expression _ step:("by" _ Expression)? _ body:BlockOrLine
     { return { type: "ForNumeric", counter: counter, start: start, end: end, step: step, body: body }; }
@@ -366,8 +363,10 @@ PrimaryExpression
       }, head);
     }
 
+// [修复] TypeTemplate 支持逗号分隔的多个类型参数 (e.g. map.new<string, float>)
 TypeTemplate
-  = "<" _ t:TypeAnnotation _ ">" { return t; }
+  = "<" _ head:TypeAnnotation tail:(_ "," _ TypeAnnotation)* _ ">" 
+    { return [head].concat(extractList(tail, 3)); }
 
 Atom
   = Literal
