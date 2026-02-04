@@ -1,6 +1,6 @@
 {{
   // =========================================================
-  // Pine Script v6 Grammar (Final Fix: Switch Cases)
+  // Pine Script v6 Grammar (Final Fix: Namespaced Types)
   // =========================================================
 
   function extractList(list, index) {
@@ -211,7 +211,7 @@ FunctionBody
   = ScopeBlock  
   / _ expr:Expression EOS { return { type: "Block", body: [expr] }; }
 
-// --- 2.3 控制流 (Fix: SwitchCaseList) ---
+// --- 2.3 控制流 ---
 
 ControlStructure
   = IfStatement
@@ -230,7 +230,6 @@ SwitchStatement
     cases:SwitchCaseList
     { return { type: "SwitchStatement", discriminant: discriminant, cases: cases }; }
 
-// [修复] 使用 CaseSeparator 处理换行，不再强制要求显式 EOL
 SwitchCaseList
   = head:SwitchCase tail:(CaseSeparator SwitchCase)*
     { return [head].concat(extractList(tail, 1)); }
@@ -365,7 +364,14 @@ TypeAnnotation
 
 SimpleType
   = PrimitiveType
-  / Identifier
+  // [修复] 支持命名空间类型 (e.g. chart.point)
+  / NamespacedIdentifier
+
+NamespacedIdentifier
+  = head:Identifier tail:("." Identifier)* { 
+       if (tail.length === 0) return head;
+       return head + tail.map(function(e) { return "." + e[1]; }).join(""); 
+    }
 
 PrimitiveType
   = ("int" / "float" / "bool" / "color" / "string" / "line" / "label" / "box" / "table") !IdentifierPart { return text(); }
