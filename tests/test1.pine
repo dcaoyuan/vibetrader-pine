@@ -401,3 +401,7 @@ else
             + "\nratio: {2,number,#.########}\naverage: {3,number,#.########}",
             numerator, denominator, ratio, average
         )
+
+type LCG        // Type declarations do not require profiling.
+    float state
+

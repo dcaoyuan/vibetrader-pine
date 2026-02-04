@@ -1,6 +1,6 @@
 {{
   // =========================================================
-  // Pine Script v6 Grammar (Fixed: Split Expression Logic)
+  // Pine Script v6 Grammar (Fixed: EOL Comments)
   // =========================================================
 
   function extractList(list, index) {
@@ -340,9 +340,6 @@ ExpressionStatement
 // 3. 表达式 (Expressions)
 // ==========================================
 
-// --- Standard Expression (Allows newlines everywhere) ---
-// Used in: Parentheses, Brackets, Function Arguments
-
 Expression
   = ConditionalExpression
 
@@ -367,7 +364,6 @@ AdditiveExpression
   = head:MultiplicativeExpression tail:(__ ("+" / "-") __ MultiplicativeExpression)* { return buildBinary(head, tail); }
 
 // --- Safe Expression (Restricted newlines) ---
-// Used in: Statement Lines (Prevents Switch/Unary ambiguity)
 
 Expression_Safe
   = ConditionalExpression_Safe
@@ -389,11 +385,10 @@ EqualityExpression_Safe
 RelationalExpression_Safe
   = head:AdditiveExpression_Safe tail:(__ (">=" / "<=" / ">" / "<") __ AdditiveExpression_Safe)* { return buildBinary(head, tail); }
 
-// [CRITICAL FIX] Only allows SAME-LINE whitespace (_) before + or -
 AdditiveExpression_Safe
   = head:MultiplicativeExpression tail:(_ ("+" / "-") __ MultiplicativeExpression)* { return buildBinary(head, tail); }
 
-// --- Shared (Multiplicative and below are safe) ---
+// --- Shared ---
 
 MultiplicativeExpression
   = head:UnaryExpression tail:(__ ("*" / "/" / "%") __ UnaryExpression)* { return buildBinary(head, tail); }
@@ -411,7 +406,7 @@ PrimaryExpression
         _ "." _ id:IdentifierName { 
             return { type: "MemberPart", id: id }; 
         }
-      / _ "[" __ idx:Expression __ "]" { // Array access allows multiline
+      / _ "[" __ idx:Expression __ "]" { 
             return { type: "IndexPart", index: idx }; 
         }
       / _ typeArgs:TypeTemplate? _ "(" __ args:ArgumentList? __ ")" { 
@@ -443,7 +438,6 @@ Atom
   / BracketExpression
   / PrimitiveType { return { type: "Identifier", name: text() }; }
   / Identifier
-  // [FIX] Parens switch to Standard Expression mode (Allowing multiline math)
   / "(" __ expression:Expression __ ")" { return expression; }
 
 BracketExpression
@@ -457,7 +451,7 @@ ArgumentList
   = head:Argument tail:(__ "," __ Argument)* { return [head].concat(extractList(tail, 3)); }
 
 Argument
-  = name:(IdentifierName __ "=" !"=")? __ value:Expression // Arguments use Standard Expression
+  = name:(IdentifierName __ "=" !"=")? __ value:Expression 
     { return { name: name ? name[0] : null, value: value }; }
 
 // ==========================================
@@ -545,7 +539,9 @@ __ = (WhiteSpace / LineTerminatorSequence / Comment)*
 WhiteSpace = [ \t]
 LineTerminator = [\n\r]
 LineTerminatorSequence = "\n" / "\r\n" / "\r"
-EOL = SAMELINE_WS LineTerminatorSequence
+
+// [FIXED] EOL now allows an optional Comment before the newline
+EOL = SAMELINE_WS Comment? LineTerminatorSequence
 
 EOS 
   = _ (";" / (Comment? LineTerminatorSequence) / (Comment? EOF))
