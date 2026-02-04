@@ -330,7 +330,6 @@ UnaryExpression
   / PrimaryExpression
 
 // --- 链式调用与多行支持 ---
-
 PrimaryExpression
   = head:Atom
     tail:(
@@ -349,6 +348,10 @@ PrimaryExpression
         if (part.type === "MemberPart") {
           return { type: "MemberExpression", object: result, property: part.id };
         } else if (part.type === "IndexPart") {
+          // [Logic Fix] 禁止连续使用 [] 操作符 (e.g., close[1][2])
+          if (result.type === "ArrayAccess") {
+            error("The [] operator can only be used once on the same value.");
+          }
           return { type: "ArrayAccess", object: result, index: part.index };
         } else if (part.type === "CallPart") {
           return { type: "CallExpression", callee: result, args: part.args, typeArgs: part.typeArgs };
