@@ -1,6 +1,6 @@
 {{
   // =========================================================
-  // Pine Script v6 Grammar (Final Fix: String Escaping)
+  // Pine Script v6 Grammar (Final Fix: Switch Cases)
   // =========================================================
 
   function extractList(list, index) {
@@ -104,7 +104,7 @@ CommentStatement
   = c:Comment EOS
     { return { type: "CommentStatement", value: c }; }
 
-// --- 2.1 变量声明与赋值 ---
+// --- 2.1 变量声明 ---
 
 VariableDeclaration
   = VarDecl_Full      
@@ -114,23 +114,27 @@ VariableDeclaration
 
 // 1. Modifiers + Type + ID
 VarDecl_Full
-  = mods:StorageModifiers __ type:TypeAnnotation __ id:Identifier _ "=" _ init:Expression EOS
+  = mods:StorageModifiers __ type:TypeAnnotation __ id:Identifier _ "=" _ init:Initializer
     { return { type: "VariableDeclaration", modifiers: mods, valueType: type, id: id, init: init }; }
 
 // 2. Modifiers + ID
 VarDecl_ModOnly
-  = mods:StorageModifiers __ id:Identifier _ "=" _ init:Expression EOS
+  = mods:StorageModifiers __ id:Identifier _ "=" _ init:Initializer
     { return { type: "VariableDeclaration", modifiers: mods, valueType: null, id: id, init: init }; }
 
 // 3. Type + ID
 VarDecl_TypeOnly
-  = type:TypeAnnotation __ id:Identifier _ "=" _ init:Expression EOS
+  = type:TypeAnnotation __ id:Identifier _ "=" _ init:Initializer
     { return { type: "VariableDeclaration", modifiers: null, valueType: type, id: id, init: init }; }
 
 // 4. Simple ID
 VarDecl_Simple
-  = id:Identifier _ "=" _ init:Expression EOS
+  = id:Identifier _ "=" _ init:Initializer
     { return { type: "VariableDeclaration", modifiers: null, valueType: null, id: id, init: init }; }
+
+Initializer
+  = c:ControlStructure { return c; }
+  / e:Expression EOS { return e; }
 
 StorageModifiers
   = p:PersistenceMode __ q:TypeQualifier 
@@ -147,14 +151,14 @@ TypeQualifier
   = ("const" / "simple" / "series") !IdentifierPart { return text(); }
 
 AssignmentStatement
-  = id:Identifier _ op:AssignmentOperator _ val:Expression EOS
+  = id:Identifier _ op:AssignmentOperator _ val:Initializer
     { return { type: "AssignmentExpression", operator: op, left: id, right: val }; }
 
 AssignmentOperator
   = ":=" / "+=" / "-=" / "*=" / "/=" / "%="
 
 TupleDeclaration
-  = "[" __ elements:TupleElementList __ "]" _ "=" _ init:Expression EOS
+  = "[" __ elements:TupleElementList __ "]" _ "=" _ init:Initializer
     { return { type: "TupleDeclaration", elements: elements, init: init }; }
 
 TupleElementList
@@ -170,7 +174,7 @@ TypeFields
   = head:TypeField tail:(EOL TypeField)* { return [head].concat(extractList(tail, 1)); }
 
 TypeField
-  = INDENT type:TypeAnnotation _ id:Identifier _ def:("=" _ Expression)?
+  = INDENT type:TypeAnnotation _ id:Identifier _ def:("=" _ Initializer)?
     { return { name: id, type: type, default: def ? def[2] : null }; }
 
 EnumDeclaration
@@ -207,7 +211,7 @@ FunctionBody
   = ScopeBlock  
   / _ expr:Expression EOS { return { type: "Block", body: [expr] }; }
 
-// --- 2.3 控制流 ---
+// --- 2.3 控制流 (Fix: SwitchCaseList) ---
 
 ControlStructure
   = IfStatement
@@ -226,9 +230,13 @@ SwitchStatement
     cases:SwitchCaseList
     { return { type: "SwitchStatement", discriminant: discriminant, cases: cases }; }
 
+// [修复] 使用 CaseSeparator 处理换行，不再强制要求显式 EOL
 SwitchCaseList
-  = head:SwitchCase tail:(EOL SwitchCase)*
+  = head:SwitchCase tail:(CaseSeparator SwitchCase)*
     { return [head].concat(extractList(tail, 1)); }
+
+CaseSeparator
+  = (SAMELINE_WS LineTerminatorSequence)*
 
 SwitchCase
   = INDENT tests:ExpressionList _ "=>" _ body:BlockOrLine
@@ -374,7 +382,6 @@ IdentifierName
 IdentifierPart
   = [a-zA-Z0-9_]
 
-// [重写] 字符串解析：支持转义字符
 Literal
   = FloatLiteral
   / IntLiteral
@@ -402,17 +409,13 @@ EscapeSequence
   / "n"  { return "\n"; }
   / "r"  { return "\r"; }
   / "t"  { return "\t"; }
-  / c:.  { return c; } // 默认处理 (如 \a -> a)
+  / c:.  { return c; }
 
 FloatLiteral  = chars:([0-9]* "." [0-9]+ ([eE] [-+]? [0-9]+)?) { return { type: "Literal", value: parseFloat(text()) }; }
 IntLiteral    = chars:([0-9]+) { return { type: "Literal", value: parseInt(text(), 10) }; }
 BoolLiteral   = ("true" / "false") { return { type: "Literal", value: text() === "true" }; }
 NaLiteral     = "na" { return { type: "Literal", value: null }; }
 ColorLiteral  = "#" [0-9a-fA-F]+ { return { type: "Literal", kind: "color", value: text() }; }
-
-// ------------------------------------------
-// 缩进与空白
-// ------------------------------------------
 
 INDENT = "    " / "\t"
 SAMELINE_WS = [ \t]*
