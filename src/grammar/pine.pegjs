@@ -1,6 +1,6 @@
 {{
   // =========================================================
-  // Pine Script v6 Grammar (Final Fix: Comments before Else)
+  // Pine Script v6 Grammar (Final Fix: Argument Ambiguity)
   // =========================================================
 
   function extractList(list, index) {
@@ -255,7 +255,6 @@ ControlStructure
   / ForStatement
   / WhileStatement
 
-// [修复] IfStatement: 在 else 分支前使用 __ (允许空行/注释)
 IfStatement
   = "if" _ test:Expression _ body:BlockOrLine
     elseIfs:(__ "else" _ "if" _ Expression _ BlockOrLine)*
@@ -403,8 +402,9 @@ ArrayElements
 ArgumentList
   = head:Argument tail:(__ "," __ Argument)* { return [head].concat(extractList(tail, 3)); }
 
+// [修复] Argument: 增加 !"=" 检查，防止将 "==" 解析为命名参数
 Argument
-  = name:(IdentifierName __ "=")? __ value:Expression
+  = name:(IdentifierName __ "=" !"=")? __ value:Expression
     { return { name: name ? name[0] : null, value: value }; }
 
 // ==========================================
