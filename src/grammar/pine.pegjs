@@ -1,6 +1,6 @@
 {{
   // =========================================================
-  // Pine Script v6 Grammar (Final Fix: Multiline Expressions)
+  // Pine Script v6 Grammar (Final Fix: Function Parameter Ambiguity)
   // =========================================================
 
   function extractList(list, index) {
@@ -203,16 +203,26 @@ ExportStatement
 ParameterList
   = head:Parameter tail:(__ "," __ Parameter)* { return [head].concat(extractList(tail, 3)); }
 
+// [修复] 参数解析：明确区分 "Type ID" 和 "ID"
 Parameter
-  = qual:(TypeQualifier __)? type:(TypeAnnotation __)? id:Identifier _ def:("=" _ Expression)?
+  = qual:(TypeQualifier __)? core:ParameterCore
     { 
       return { 
-        id: id, 
+        id: core.id, 
         qualifier: qual ? qual[0] : null, 
-        type: type ? type[0] : null, 
-        default: def ? def[2] : null 
+        type: core.type, 
+        default: core.default 
       }; 
     }
+
+ParameterCore
+  // Case 1: 显式类型 (例如: int x, MyType y)
+  // 使用 &Identifier 确保类型后面紧跟着参数名，防止贪婪匹配
+  = type:TypeAnnotation __ &Identifier id:Identifier _ def:("=" _ Expression)?
+    { return { type: type, id: id, default: def ? def[2] : null }; }
+  // Case 2: 仅参数名 (例如: x, y)
+  / id:Identifier _ def:("=" _ Expression)?
+    { return { type: null, id: id, default: def ? def[2] : null }; }
 
 FunctionBody
   = ScopeBlock  
@@ -293,7 +303,6 @@ ExpressionStatement
 Expression
   = ConditionalExpression
 
-// [修复] 使用 __ 允许运算符前后换行
 ConditionalExpression
   = test:LogicalOrExpression __ "?" __ consequent:Expression __ ":" __ alternate:Expression
     { return { type: "ConditionalExpression", test: test, consequent: consequent, alternate: alternate }; }

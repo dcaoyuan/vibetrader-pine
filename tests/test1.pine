@@ -195,3 +195,10 @@ float x = open +
           close    // Indented by 10 spaces.
           
     
+
+GREEN_COLOR = #4CAF50
+MAX_LOOKBACK = 100
+int fastLength = 7
+// Returns 1 if the argument is `true`, 0 if it is `false` or `na`.
+zeroOne(boolValue) => boolValue ? 1 : 0
+
