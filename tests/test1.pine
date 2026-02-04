@@ -187,3 +187,11 @@ label.set_point(myLabel, myPoint)
 
 // Retrieve the y-coordinate from the `myLabel` label, confirming that both persistent objects were modified.
 plot(label.get_y(myLabel), "Label y-coordinate")
+
+
+float x = open +
+  high +           // Indented by 2 spaces.
+     low +         // Indented by 5 spaces.
+          close    // Indented by 10 spaces.
+          
+    

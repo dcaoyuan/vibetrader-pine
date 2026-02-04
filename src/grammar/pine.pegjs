@@ -1,6 +1,6 @@
 {{
   // =========================================================
-  // Pine Script v6 Grammar (Final Fix: Trailing Comments)
+  // Pine Script v6 Grammar (Final Fix: Multiline Expressions)
   // =========================================================
 
   function extractList(list, index) {
@@ -293,31 +293,32 @@ ExpressionStatement
 Expression
   = ConditionalExpression
 
+// [修复] 使用 __ 允许运算符前后换行
 ConditionalExpression
-  = test:LogicalOrExpression _ "?" _ consequent:Expression _ ":" _ alternate:Expression
+  = test:LogicalOrExpression __ "?" __ consequent:Expression __ ":" __ alternate:Expression
     { return { type: "ConditionalExpression", test: test, consequent: consequent, alternate: alternate }; }
   / LogicalOrExpression
 
 LogicalOrExpression
-  = head:LogicalAndExpression tail:(_ "or" _ LogicalAndExpression)* { return buildLogical(head, tail); }
+  = head:LogicalAndExpression tail:(__ "or" __ LogicalAndExpression)* { return buildLogical(head, tail); }
 
 LogicalAndExpression
-  = head:EqualityExpression tail:(_ "and" _ EqualityExpression)* { return buildLogical(head, tail); }
+  = head:EqualityExpression tail:(__ "and" __ EqualityExpression)* { return buildLogical(head, tail); }
 
 EqualityExpression
-  = head:RelationalExpression tail:(_ ("==" / "!=") _ RelationalExpression)* { return buildBinary(head, tail); }
+  = head:RelationalExpression tail:(__ ("==" / "!=") __ RelationalExpression)* { return buildBinary(head, tail); }
 
 RelationalExpression
-  = head:AdditiveExpression tail:(_ (">=" / "<=" / ">" / "<") _ AdditiveExpression)* { return buildBinary(head, tail); }
+  = head:AdditiveExpression tail:(__ (">=" / "<=" / ">" / "<") __ AdditiveExpression)* { return buildBinary(head, tail); }
 
 AdditiveExpression
-  = head:MultiplicativeExpression tail:(_ ("+" / "-") _ MultiplicativeExpression)* { return buildBinary(head, tail); }
+  = head:MultiplicativeExpression tail:(__ ("+" / "-") __ MultiplicativeExpression)* { return buildBinary(head, tail); }
 
 MultiplicativeExpression
-  = head:UnaryExpression tail:(_ ("*" / "/" / "%") _ UnaryExpression)* { return buildBinary(head, tail); }
+  = head:UnaryExpression tail:(__ ("*" / "/" / "%") __ UnaryExpression)* { return buildBinary(head, tail); }
 
 UnaryExpression
-  = operator:("not" / "+" / "-") _ argument:UnaryExpression
+  = operator:("not" / "+" / "-") __ argument:UnaryExpression
     { return { type: "UnaryExpression", operator: operator, argument: argument }; }
   / PrimaryExpression
 
@@ -453,10 +454,7 @@ LineTerminator = [\n\r]
 LineTerminatorSequence = "\n" / "\r\n" / "\r"
 EOL = SAMELINE_WS LineTerminatorSequence
 
-// [修复] EOS: 允许语句末尾出现注释
-// 1. ";" 分号结束
-// 2. Comment? LineTerminatorSequence (行末注释 + 换行)
-// 3. Comment? EOF (行末注释 + 文件结束)
+// EOS: 允许语句末尾出现注释
 EOS 
   = _ (";" / (Comment? LineTerminatorSequence) / (Comment? EOF))
 
