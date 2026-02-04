@@ -1,6 +1,6 @@
 {{
   // =========================================================
-  // Pine Script v6 Grammar (Final Fix: Blank Lines in Blocks)
+  // Pine Script v6 Grammar (Final Fix: Strict Indentation)
   // =========================================================
 
   function extractList(list, index) {
@@ -273,10 +273,11 @@ SwitchCaseList
 CaseSeparator
   = (SAMELINE_WS Comment? LineTerminatorSequence)*
 
+// [修复] SwitchCase: 强制使用 INDENT 的倍数 (ExtraIndents)
 SwitchCase
-  = INDENT tests:ExpressionList _ "=>" _ body:BlockOrLine
+  = INDENT ExtraIndents tests:ExpressionList _ "=>" _ body:BlockOrLine
     { return { type: "SwitchCase", tests: tests, consequent: body }; }
-  / INDENT "=>" _ body:BlockOrLine 
+  / INDENT ExtraIndents "=>" _ body:BlockOrLine 
     { return { type: "SwitchCase", default: true, consequent: body }; }
 
 ExpressionList
@@ -298,9 +299,6 @@ BlockOrLine
   / _ "=>" _ ScopeBlock
   / _ expr:Expression EOS { return { type: "Block", body: [expr] }; }
 
-// [修复] ScopeBlock: 允许在第一行代码前有空行
-// EOL 消耗 "=>" 后的第一个换行
-// BlockSeparator 消耗后续可能的空行 + 最终的 INDENT
 ScopeBlock
   = EOL BlockSeparator statements:StatementListDedent 
     { return { type: "Block", body: statements }; }
@@ -481,6 +479,9 @@ ColorLiteral  = "#" [0-9a-fA-F]+ { return { type: "Literal", kind: "color", valu
 // ------------------------------------------
 
 INDENT = "    " / "\t"
+// [新增] 额外缩进：匹配 INDENT 的倍数（而非任意空格）
+ExtraIndents = INDENT*
+
 SAMELINE_WS = [ \t]*
 _  = [ \t]*
 __ = (WhiteSpace / LineTerminatorSequence / Comment)*
@@ -492,8 +493,9 @@ EOL = SAMELINE_WS LineTerminatorSequence
 EOS 
   = _ (";" / (Comment? LineTerminatorSequence) / (Comment? EOF))
 
+// [修复] BlockSeparator: 使用 ExtraIndents 替换 _，确保严格缩进
 BlockSeparator 
-  = (SAMELINE_WS LineTerminatorSequence)* INDENT
+  = (SAMELINE_WS LineTerminatorSequence)* INDENT ExtraIndents
 
 Comment
   = "//" text:(!LineTerminator .)* { return text.map(t => t[1]).join(""); }

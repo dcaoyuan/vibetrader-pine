@@ -269,3 +269,22 @@ float osc = zScore(close, 20)
 // Plot the `osc` series as color-coded columns.
 plot(osc, "Z-score", osc > 0 ? color.green : color.red, style = plot.style_columns)
 
+
+//@function Calculates the median of `source` over `length` bars, then returns a moving average of the median.
+smoothMedian(float source, int length, string avgType = "ema") =>
+
+    //@variable The median of the `source` series.
+    float median = ta.median(source, length)
+
+    // Calculate the EMA, SMA, and WMA of `median`.
+    float ema = ta.ema(median, length)
+    float sma = ta.sma(median, length)
+    float wma = ta.wma(median, length)
+
+    // Return `ema`, `sma`, or `wma`, depending on the `avgType` value.
+    switch avgType
+        "ema" => ema
+        "sma" => sma
+        "wma" => wma
+
+
