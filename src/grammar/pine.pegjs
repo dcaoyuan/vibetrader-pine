@@ -1,6 +1,6 @@
 {{
   // =========================================================
-  // Pine Script v6 Grammar (Final Fix: Type Casting Support)
+  // Pine Script v6 Grammar (Final Fix: Modifiers & Qualifiers)
   // =========================================================
 
   function extractList(list, index) {
@@ -104,36 +104,48 @@ CommentStatement
   = c:Comment EOS
     { return { type: "CommentStatement", value: c }; }
 
-// --- 2.1 变量声明与赋值 ---
+// --- 2.1 变量声明与赋值 (核心重构) ---
 
 VariableDeclaration
-  = VariableDeclaration_Mode_Typed    // 1. const float x = ...
-  / VariableDeclaration_Mode_Untyped  // 2. var x = ...
-  / VariableDeclaration_Typed         // 3. float x = ...
-  / VariableDeclaration_Simple        // 4. x = ...
+  = VarDecl_Full      // Mods + Type + ID (e.g. "var simple float x = ...")
+  / VarDecl_ModOnly   // Mods + ID        (e.g. "var x = ...", "const x = ...")
+  / VarDecl_TypeOnly  // Type + ID        (e.g. "float x = ...")
+  / VarDecl_Simple    // ID               (e.g. "x = ...")
 
-// Case 1: Mode + Type + ID
-VariableDeclaration_Mode_Typed
-  = mode:DeclarationMode __ type:TypeAnnotation __ id:Identifier _ "=" _ init:Expression EOS
-    { return { type: "VariableDeclaration", mode: mode, valueType: type, id: id, init: init }; }
+// 1. Modifiers + Type + ID
+VarDecl_Full
+  = mods:StorageModifiers __ type:TypeAnnotation __ id:Identifier _ "=" _ init:Expression EOS
+    { return { type: "VariableDeclaration", modifiers: mods, valueType: type, id: id, init: init }; }
 
-// Case 2: Mode + ID
-VariableDeclaration_Mode_Untyped
-  = mode:DeclarationMode __ id:Identifier _ "=" _ init:Expression EOS
-    { return { type: "VariableDeclaration", mode: mode, valueType: null, id: id, init: init }; }
+// 2. Modifiers + ID (Type inferred)
+VarDecl_ModOnly
+  = mods:StorageModifiers __ id:Identifier _ "=" _ init:Expression EOS
+    { return { type: "VariableDeclaration", modifiers: mods, valueType: null, id: id, init: init }; }
 
-// Case 3: Type + ID
-VariableDeclaration_Typed
+// 3. Type + ID (No Modifiers)
+VarDecl_TypeOnly
   = type:TypeAnnotation __ id:Identifier _ "=" _ init:Expression EOS
-    { return { type: "VariableDeclaration", mode: null, valueType: type, id: id, init: init }; }
+    { return { type: "VariableDeclaration", modifiers: null, valueType: type, id: id, init: init }; }
 
-// Case 4: ID only
-VariableDeclaration_Simple
+// 4. Simple ID (No Modifiers, No Type)
+VarDecl_Simple
   = id:Identifier _ "=" _ init:Expression EOS
-    { return { type: "VariableDeclaration", mode: null, valueType: null, id: id, init: init }; }
+    { return { type: "VariableDeclaration", modifiers: null, valueType: null, id: id, init: init }; }
 
-DeclarationMode
-  = ("varip" / "var" / "const") !IdentifierPart { return text(); }
+// 修饰符组合逻辑 (e.g. "var simple", "simple", "var")
+StorageModifiers
+  = p:PersistenceMode __ q:TypeQualifier 
+    { return { persistence: p, qualifier: q }; }
+  / p:PersistenceMode 
+    { return { persistence: p, qualifier: null }; }
+  / q:TypeQualifier
+    { return { persistence: null, qualifier: q }; }
+
+PersistenceMode
+  = ("varip" / "var") !IdentifierPart { return text(); }
+
+TypeQualifier
+  = ("const" / "simple" / "series") !IdentifierPart { return text(); }
 
 AssignmentStatement
   = id:Identifier _ op:AssignmentOperator _ val:Expression EOS
@@ -326,7 +338,7 @@ PrimaryExpression
 
 Atom
   = Literal
-  // [修复] 允许 PrimitiveType 作为表达式原子 (用于 float(), int() 等类型转换调用)
+  // 允许 PrimitiveType 作为表达式原子 (用于 float(), int() 等类型转换调用)
   / PrimitiveType { return { type: "Identifier", name: text() }; }
   / Identifier
   / "(" _ expression:Expression _ ")" { return expression; }
@@ -346,7 +358,6 @@ TypeAnnotation
   = (SimpleType / GenericType) ("[" "]")*
 
 SimpleType
-  // SimpleType 可以匹配 PrimitiveType 或 Identifier (用户自定义类型)
   = PrimitiveType
   / Identifier
 
@@ -400,7 +411,6 @@ BlockSeparator
 Comment
   = "//" text:(!LineTerminator .)* { return text.map(t => t[1]).join(""); }
 
-// [重构] ReservedWord 拆分
 ReservedWord
   = Keyword
   / PrimitiveType
