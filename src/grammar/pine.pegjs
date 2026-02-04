@@ -1,6 +1,6 @@
 {{
   // =========================================================
-  // Pine Script v6 Grammar (Final Fix: Variable Declaration Ambiguity)
+  // Pine Script v6 Grammar (Final Fix: Type Casting Support)
   // =========================================================
 
   function extractList(list, index) {
@@ -104,37 +104,36 @@ CommentStatement
   = c:Comment EOS
     { return { type: "CommentStatement", value: c }; }
 
-// --- 2.1 变量声明与赋值 (核心修复) ---
+// --- 2.1 变量声明与赋值 ---
 
 VariableDeclaration
-  = VariableDeclaration_Mode_Typed    // 1. var int x = ...
-  / VariableDeclaration_Mode_Untyped  // 2. var x = ... (修复此处)
-  / VariableDeclaration_Typed         // 3. int x = ...
+  = VariableDeclaration_Mode_Typed    // 1. const float x = ...
+  / VariableDeclaration_Mode_Untyped  // 2. var x = ...
+  / VariableDeclaration_Typed         // 3. float x = ...
   / VariableDeclaration_Simple        // 4. x = ...
 
-// Case 1: var + Type + ID
+// Case 1: Mode + Type + ID
 VariableDeclaration_Mode_Typed
   = mode:DeclarationMode __ type:TypeAnnotation __ id:Identifier _ "=" _ init:Expression EOS
     { return { type: "VariableDeclaration", mode: mode, valueType: type, id: id, init: init }; }
 
-// Case 2: var + ID (无 Type)
+// Case 2: Mode + ID
 VariableDeclaration_Mode_Untyped
   = mode:DeclarationMode __ id:Identifier _ "=" _ init:Expression EOS
     { return { type: "VariableDeclaration", mode: mode, valueType: null, id: id, init: init }; }
 
-// Case 3: Type + ID (无 var)
-// 注意: 这里必须强制 __ 空格，确保 Type 后面跟的是 ID 而不是 "="
+// Case 3: Type + ID
 VariableDeclaration_Typed
   = type:TypeAnnotation __ id:Identifier _ "=" _ init:Expression EOS
     { return { type: "VariableDeclaration", mode: null, valueType: type, id: id, init: init }; }
 
-// Case 4: ID only (无 var, 无 Type)
+// Case 4: ID only
 VariableDeclaration_Simple
   = id:Identifier _ "=" _ init:Expression EOS
     { return { type: "VariableDeclaration", mode: null, valueType: null, id: id, init: init }; }
 
 DeclarationMode
-  = ("varip" / "var") !IdentifierPart { return text(); }
+  = ("varip" / "var" / "const") !IdentifierPart { return text(); }
 
 AssignmentStatement
   = id:Identifier _ op:AssignmentOperator _ val:Expression EOS
@@ -327,6 +326,8 @@ PrimaryExpression
 
 Atom
   = Literal
+  // [修复] 允许 PrimitiveType 作为表达式原子 (用于 float(), int() 等类型转换调用)
+  / PrimitiveType { return { type: "Identifier", name: text() }; }
   / Identifier
   / "(" _ expression:Expression _ ")" { return expression; }
 
@@ -338,14 +339,19 @@ Argument
     { return { name: name ? name[0] : null, value: value }; }
 
 // ==========================================
-// 4. 词法规则
+// 4. 词法规则 (Lexical Rules)
 // ==========================================
 
 TypeAnnotation
   = (SimpleType / GenericType) ("[" "]")*
 
 SimpleType
-  = "int" / "float" / "bool" / "color" / "string" / "line" / "label" / "box" / "table" / Identifier
+  // SimpleType 可以匹配 PrimitiveType 或 Identifier (用户自定义类型)
+  = PrimitiveType
+  / Identifier
+
+PrimitiveType
+  = ("int" / "float" / "bool" / "color" / "string" / "line" / "label" / "box" / "table") !IdentifierPart { return text(); }
 
 GenericType
   = ("array" / "matrix" / "map") "<" _ TypeAnnotation _ ("," _ TypeAnnotation)? ">"
@@ -394,9 +400,18 @@ BlockSeparator
 Comment
   = "//" text:(!LineTerminator .)* { return text.map(t => t[1]).join(""); }
 
+// [重构] ReservedWord 拆分
 ReservedWord
+  = Keyword
+  / PrimitiveType
+  / LiteralKeyword
+
+Keyword
   = ("if" / "else" / "for" / "while" / "switch" / "return" / "break" / "continue" / 
-     "var" / "varip" / "import" / "export" / "method" / "type" / "enum" / 
-     "true" / "false" / "na" / "and" / "or" / "not") !IdentifierPart
+     "var" / "varip" / "const" / "simple" / "series" / 
+     "import" / "export" / "method" / "type" / "enum") !IdentifierPart
+
+LiteralKeyword
+  = ("true" / "false" / "na" / "and" / "or" / "not") !IdentifierPart
 
 EOF = !.
