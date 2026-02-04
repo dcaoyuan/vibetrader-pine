@@ -414,3 +414,6 @@ a = open + high + low +
 
 // while series is a keyword used in type casting or declarations, it is also permitted as a variable identifier.
 series = close >= open ? close : na
+
+// any literal using scientific notation (the e or E symbol) is automatically categorized as a floating-point type. 
+x = 1e12

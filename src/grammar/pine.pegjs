@@ -1,6 +1,6 @@
 {{
   // =========================================================
-  // Pine Script v6 Grammar (Fixed: Identifier/Keyword Conflict)
+  // Pine Script v6 Grammar (Fixed: Scientific Notation Support)
   // =========================================================
 
   function extractList(list, index) {
@@ -524,10 +524,12 @@ EscapeSequence
   / "t"  { return "\t"; }
   / c:.  { return c; }
 
+// [FIXED] FloatLiteral now correctly handles scientific notation for integers (e.g., 1e12)
 FloatLiteral
   = chars:(
       ( [0-9]+ "." [0-9]* ([eE] [-+]? [0-9]+)? )
     / ( "." [0-9]+ ([eE] [-+]? [0-9]+)? )
+    / ( [0-9]+ [eE] [-+]? [0-9]+ )
     ) { return { type: "Literal", value: parseFloat(text()) }; }
 
 IntLiteral    = chars:([0-9]+) { return { type: "Literal", value: parseInt(text(), 10) }; }
