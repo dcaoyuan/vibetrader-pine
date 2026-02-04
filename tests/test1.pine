@@ -1,0 +1,70 @@
+//@version=6
+indicator(title="RSI Divergence Detector", shorttitle="RSI Div", overlay=true)
+
+// --- Settings ---
+len = input.int(14, minval=1, title="RSI Length")
+ob = input.int(70, "Overbought", minval=50, maxval=100)
+os = input.int(30, "Oversold", minval=0, maxval=50)
+lookback = input.int(5, "Pivot Lookback", minval=1)
+
+// --- RSI Calculation ---
+src = close
+up = ta.rma(math.max(ta.change(src), 0), len)
+down = ta.rma(-math.min(ta.change(src), 0), len)
+rsi = down == 0 ? 100 : up == 0 ? 0 : 100 - (100 / (1 + up / down))
+
+// --- Pivot Points ---
+pl = ta.pivotlow(rsi, lookback, lookback)
+ph = ta.pivothigh(rsi, lookback, lookback)
+
+// --- Divergence Logic ---
+// Bullish Divergence
+bullishDiv = false
+if (not na(pl))
+    // Find previous pivot low
+    // We need to look back to find the previous pivot
+    // This is a simplified search for the most recent valid pivot
+    prevPl = float(na)
+    prevPriceLow = float(na)
+    
+    // Check pivots in history
+    for i = 1 to 20
+        if not na(ta.pivotlow(rsi[i], lookback, lookback))
+            prevPl := rsi[lookback + i]
+            prevPriceLow := low[lookback + i]
+            break
+            
+    // Current Pivot Info
+    currPl = rsi[lookback]
+    currPriceLow = low[lookback]
+    
+    // Condition: Price Lower Low, RSI Higher Low
+    if (not na(prevPl) and currPriceLow < prevPriceLow and currPl > prevPl)
+        bullishDiv := true
+
+// Bearish Divergence
+bearishDiv = false
+if (not na(ph))
+    prevPh = float(na)
+    prevPriceHigh = float(na)
+    
+    for i = 1 to 20
+        if not na(ta.pivothigh(rsi[i], lookback, lookback))
+            prevPh := rsi[lookback + i]
+            prevPriceHigh := high[lookback + i]
+            break
+            
+    currPh = rsi[lookback]
+    currPriceHigh = high[lookback]
+    
+    // Condition: Price Higher High, RSI Lower High
+    if (not na(prevPh) and currPriceHigh > prevPriceHigh and currPh < prevPh)
+        bearishDiv := true
+
+// --- Plotting ---
+plotshape(bullishDiv, title="Bullish Divergence", style=shape.labelup, location=location.belowbar, color=color.green, text="BULL DIV", textcolor=color.white, offset=-lookback)
+plotshape(bearishDiv, title="Bearish Divergence", style=shape.labeldown, location=location.abovebar, color=color.red, text="BEAR DIV", textcolor=color.white, offset=-lookback)
+
+// Plot RSI background for reference (optional, keeps chart clean)
+hline(ob, "Overbought", color=color.red)
+hline(os, "Oversold", color=color.green)
