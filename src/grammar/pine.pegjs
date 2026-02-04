@@ -1,6 +1,6 @@
 {{
   // =========================================================
-  // Pine Script v6 Grammar (Final Fix: Switch Comments)
+  // Pine Script v6 Grammar (Final Fix: For-In Tuple)
   // =========================================================
 
   function extractList(list, index) {
@@ -86,7 +86,7 @@ Statement
   / EnumDeclaration     
   / MethodDeclaration   
   / FunctionDeclaration 
-  / TupleDeclaration
+  / TupleDeclaration    // 独立的元组赋值语句 [a,b] = call()
   / VariableDeclaration 
   / AssignmentStatement 
   / ControlStructure    
@@ -157,9 +157,15 @@ AssignmentStatement
 AssignmentOperator
   = ":=" / "+=" / "-=" / "*=" / "/=" / "%="
 
+// --- 元组声明 (用于语句：包含赋值号) ---
 TupleDeclaration
-  = "[" __ elements:TupleElementList __ "]" _ "=" _ init:Initializer
-    { return { type: "TupleDeclaration", elements: elements, init: init }; }
+  = pattern:TuplePattern _ "=" _ init:Initializer
+    { return { type: "TupleDeclaration", elements: pattern.elements, init: init }; }
+
+// [新增] 元组模式 (用于 For 循环等：不含赋值号)
+TuplePattern
+  = "[" __ elements:TupleElementList __ "]"
+    { return { type: "TuplePattern", elements: elements }; }
 
 TupleElementList
   = head:(Identifier / "_") tail:(__ "," __ (Identifier / "_"))* { return [head].concat(extractList(tail, 3)); }
@@ -243,12 +249,10 @@ SwitchStatement
     cases:SwitchCaseList
     { return { type: "SwitchStatement", discriminant: discriminant, cases: cases }; }
 
-// [修复] SwitchCaseList: 允许 case 之间（包括第一个 case 之前）存在注释
 SwitchCaseList
   = intro:CaseSeparator head:SwitchCase tail:(CaseSeparator SwitchCase)*
     { return [head].concat(extractList(tail, 1)); }
 
-// [修复] CaseSeparator: 允许空行 或 注释行
 CaseSeparator
   = (SAMELINE_WS Comment? LineTerminatorSequence)*
 
@@ -262,10 +266,11 @@ ExpressionList
   = head:Expression tail:(_ "," _ Expression)*
     { return [head].concat(extractList(tail, 3)); }
 
+// [修复] ForIn 循环支持 TuplePattern (无赋值号) 或 Identifier
 ForStatement
   = "for" _ counter:Identifier _ "=" _ start:Expression _ "to" _ end:Expression _ step:("by" _ Expression)? _ body:BlockOrLine
     { return { type: "ForNumeric", counter: counter, start: start, end: end, step: step, body: body }; }
-  / "for" _ item:(Identifier / TupleDeclaration) _ "in" _ collection:Expression _ body:BlockOrLine
+  / "for" _ item:(TuplePattern / Identifier) _ "in" _ collection:Expression _ body:BlockOrLine
     { return { type: "ForIn", item: item, collection: collection, body: body }; }
 
 WhileStatement
@@ -330,6 +335,7 @@ UnaryExpression
   / PrimaryExpression
 
 // --- 链式调用与多行支持 ---
+
 PrimaryExpression
   = head:Atom
     tail:(
@@ -348,7 +354,7 @@ PrimaryExpression
         if (part.type === "MemberPart") {
           return { type: "MemberExpression", object: result, property: part.id };
         } else if (part.type === "IndexPart") {
-          // [Logic Fix] 禁止连续使用 [] 操作符 (e.g., close[1][2])
+          // 禁止连续 []
           if (result.type === "ArrayAccess") {
             error("The [] operator can only be used once on the same value.");
           }
