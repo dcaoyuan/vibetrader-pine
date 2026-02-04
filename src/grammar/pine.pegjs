@@ -1,6 +1,6 @@
 {{
   // =========================================================
-  // Pine Script v6 Grammar (Fixed: Identifier-Type Overlap)
+  // Pine Script v6 Grammar (Fixed: 'na' vs Identifier Prefix)
   // =========================================================
 
   function extractList(list, index) {
@@ -533,7 +533,10 @@ FloatLiteral
 
 IntLiteral    = chars:([0-9]+) { return { type: "Literal", value: parseInt(text(), 10) }; }
 BoolLiteral   = ("true" / "false") { return { type: "Literal", value: text() === "true" }; }
-NaLiteral     = "na" { return { type: "Literal", value: null }; }
+
+// [FIXED] Added !IdentifierPart to prevent 'na' from matching prefixes of identifiers like 'name'
+NaLiteral     = "na" !IdentifierPart { return { type: "Literal", value: null }; }
+
 ColorLiteral  = "#" [0-9a-fA-F]+ { return { type: "Literal", kind: "color", value: text() }; }
 
 // ------------------------------------------
