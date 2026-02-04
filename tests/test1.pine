@@ -132,3 +132,58 @@ matrix<float> myFloatMatrix = matrix.new<float>(2, 3, 0.0)
 
 a = [sum, product]
 
+//@function Returns information about the current chart.
+chartInfo() =>
+    //@variable The first visible bar's UNIX time value.
+    int firstVisibleTime = chart.left_visible_bar_time
+    //@variable The `close` value at the `firstVisibleTime`.
+    float firstVisibleClose = ta.valuewhen(ta.cross(time, firstVisibleTime), close, 0)
+    //@variable Is `true` if the chart has a standard chart type; `false` otherwise.
+    bool isStandard = chart.is_standard
+    //@variable The foreground color of the chart.
+    color fgColor = chart.fg_color
+    //@variable The ticker ID of the current chart.
+    string symbol = syminfo.tickerid
+    // Return a tuple containing the values.
+    [firstVisibleTime, firstVisibleClose, isStandard, fgColor, symbol]
+    
+//@function Returns a tuple of OHLC values, rounded to the nearest tick.
+roundedOHLC() =>
+    [math.round_to_mintick(open), math.round_to_mintick(high), math.round_to_mintick(low), math.round_to_mintick(close)]
+
+[op, hi, lo, cl] = request.security(syminfo.tickerid, "1D", roundedOHLC())
+
+
+
+
+getParameters(float source, simple int length) =>
+    // Although the expected type of the `length` parameter is "simple int", the
+    // `length` value in the returned tuple inherits the "series" qualifier if the
+    // `source` value has that qualifier, because all items in a tuple inherit the *same* qualifier.
+    [source, length]
+
+// Declare a tuple containing the values returned by a `getParameters()` call.
+// Both variables in this tuple have the "series" qualifier, because `close` is of the type "series float".
+[src, len] = getParameters(source = close, length = 20)
+
+// This line causes an error. `ta.ema()` expects a "simple int" `length` argument, but `len` has the type "series int".
+plot(ta.ema(source = src, length = len))
+
+
+
+//@variable Maintains a persistent reference to one `chart.point` object with an initial `price` field of `na`. 
+var chart.point myPoint = chart.point.now(na)
+
+//@variable Maintains a persistent reference to one `label` object initialized using the `myPoint` chart point.
+var label myLabel = label.new(myPoint, "Persistent label")
+
+// Update the chart point referenced by `myPoint` on each bar by reassigning the object's *fields*.
+myPoint.index := bar_index
+myPoint.price := close
+
+// Update the label referenced by `myLabel` using a call to `label.set_point()`. The call uses the `index` field of 
+// the chart point for the label's x-coordinate, and the `price` field for the y-coordinate.
+label.set_point(myLabel, myPoint)
+
+// Retrieve the y-coordinate from the `myLabel` label, confirming that both persistent objects were modified.
+plot(label.get_y(myLabel), "Label y-coordinate")

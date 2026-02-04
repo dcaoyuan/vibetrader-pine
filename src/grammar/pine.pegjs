@@ -1,6 +1,6 @@
 {{
   // =========================================================
-  // Pine Script v6 Grammar (Final Fix: Parameter Qualifiers)
+  // Pine Script v6 Grammar (Final Fix: Member Assignment)
   // =========================================================
 
   function extractList(list, index) {
@@ -150,9 +150,10 @@ PersistenceMode
 TypeQualifier
   = ("const" / "simple" / "series") !IdentifierPart { return text(); }
 
+// [修复] 赋值语句：左侧允许 PrimaryExpression (覆盖 Identifier, MemberExpression, ArrayAccess)
 AssignmentStatement
-  = id:Identifier _ op:AssignmentOperator _ val:Initializer
-    { return { type: "AssignmentExpression", operator: op, left: id, right: val }; }
+  = left:PrimaryExpression _ op:AssignmentOperator _ val:Initializer
+    { return { type: "AssignmentExpression", operator: op, left: left, right: val }; }
 
 AssignmentOperator
   = ":=" / "+=" / "-=" / "*=" / "/=" / "%="
@@ -203,7 +204,6 @@ ExportStatement
 ParameterList
   = head:Parameter tail:(__ "," __ Parameter)* { return [head].concat(extractList(tail, 3)); }
 
-// [修复] Parameter 支持 qualifiers (simple/series/const)
 Parameter
   = qual:(TypeQualifier __)? type:(TypeAnnotation __)? id:Identifier _ def:("=" _ Expression)?
     { 
