@@ -411,3 +411,6 @@ a = open + high + low +
 // following code should be invalid with no indent space as contune line
 //a = open + high + low +
 //close
+
+// while series is a keyword used in type casting or declarations, it is also permitted as a variable identifier.
+series = close >= open ? close : na

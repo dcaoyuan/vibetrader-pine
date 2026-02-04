@@ -1,6 +1,6 @@
 {{
   // =========================================================
-  // Pine Script v6 Grammar (Fixed: Strict Line Continuation)
+  // Pine Script v6 Grammar (Fixed: Identifier/Keyword Conflict)
   // =========================================================
 
   function extractList(list, index) {
@@ -122,7 +122,7 @@ CommentStatement
   = c:Comment EOS
     { return { type: "CommentStatement", value: c }; }
 
-// --- 2.1 变量声明 (Uses Safe Expressions) ---
+// --- 2.1 变量声明 ---
 
 VariableDeclaration_Expr
   = mods:StorageModifiers? __ type:TypeAnnotation? __ id:Identifier _ "=" __ init:Expression_Safe
@@ -170,7 +170,7 @@ PersistenceMode
 TypeQualifier
   = ("const" / "simple" / "series") !IdentifierPart { return text(); }
 
-// --- 赋值语句 (Uses Safe Expressions) ---
+// --- 赋值语句 ---
 
 AssignmentStatement_Expr
   = left:PrimaryExpression _ op:AssignmentOperator __ val:Expression_Safe
@@ -183,7 +183,7 @@ AssignmentStatement_Struct
 AssignmentOperator
   = ":=" / "+=" / "-=" / "*=" / "/=" / "%="
 
-// --- 元组声明 (Uses Safe Expressions) ---
+// --- 元组声明 ---
 
 TupleDeclaration_Expr
   = pattern:TuplePattern _ "=" __ init:Expression_Safe
@@ -264,7 +264,7 @@ InlineSeries
   = head:SimpleStatement tail:(_ "," _ SimpleStatement)*
     { return [head].concat(extractList(tail, 3)); }
 
-// --- 2.3 控制流 (Uses Safe Expressions) ---
+// --- 2.3 控制流 ---
 
 ControlStructure
   = IfStatement
@@ -340,19 +340,12 @@ ExpressionStatement
 // 3. 表达式 (Expressions)
 // ==========================================
 
-// --- Shared Helper: Safe Expression Separator ---
-// Matches whitespace or comments.
-// If it consumes a newline, it strictly ENFORCES indentation that is NOT a multiple of 4.
-
 ExprSep "valid continuation"
   = (
       [ \t]+
     / Comment
     / LineTerminatorSequence indent:[ \t]+ &{ return indent.join("").length % 4 !== 0; }
     )*
-
-// --- Standard Expression (Unsafe/Permissive) ---
-// Used in: Parentheses, Brackets, Function Arguments
 
 Expression
   = ConditionalExpression
@@ -385,10 +378,6 @@ UnaryExpression
     { return { type: "UnaryExpression", operator: operator[0], argument: argument }; }
   / PrimaryExpression
 
-// --- Safe Expression (Strict Indentation) ---
-// Used in: Top-level statements (Variable Decl, Assignment, Control flow)
-// This strictly enforces the "Indented but not multiple of 4" rule for continuations.
-
 Expression_Safe
   = ConditionalExpression_Safe
 
@@ -419,8 +408,6 @@ UnaryExpression_Safe
   = operator:("not" !IdentifierPart / "+" / "-") ExprSep argument:UnaryExpression_Safe
     { return { type: "UnaryExpression", operator: operator[0], argument: argument }; }
   / PrimaryExpression
-
-// --- 链式调用与多行支持 ---
 
 PrimaryExpression
   = head:Atom
@@ -460,7 +447,6 @@ Atom
   / BracketExpression
   / PrimitiveType { return { type: "Identifier", name: text() }; }
   / Identifier
-  // Inside parentheses, we switch back to the Permissive Expression (allows arbitrary newlines)
   / "(" __ expression:Expression __ ")" { return expression; }
 
 BracketExpression
@@ -581,8 +567,7 @@ ReservedWord
 
 Keyword
   = ("if" / "else" / "for" / "while" / "switch" / "return" / "break" / "continue" / 
-     "var" / "varip" / "const" / "simple" / "series" / 
-     "import" / "export" / "method" / "type" / "enum") !IdentifierPart
+     "var" / "varip" / "import" / "export" / "method" / "type" / "enum") !IdentifierPart
 
 LiteralKeyword
   = ("true" / "false" / "na" / "and" / "or" / "not") !IdentifierPart
