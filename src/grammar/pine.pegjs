@@ -1,6 +1,6 @@
 {{
   // =========================================================
-  // Pine Script v6 Grammar (Final Fix: Strict Indentation)
+  // Pine Script v6 Grammar (Final Fix: Trailing Dot Floats)
   // =========================================================
 
   function extractList(list, index) {
@@ -273,7 +273,6 @@ SwitchCaseList
 CaseSeparator
   = (SAMELINE_WS Comment? LineTerminatorSequence)*
 
-// [修复] SwitchCase: 强制使用 INDENT 的倍数 (ExtraIndents)
 SwitchCase
   = INDENT ExtraIndents tests:ExpressionList _ "=>" _ body:BlockOrLine
     { return { type: "SwitchCase", tests: tests, consequent: body }; }
@@ -468,7 +467,13 @@ EscapeSequence
   / "t"  { return "\t"; }
   / c:.  { return c; }
 
-FloatLiteral  = chars:([0-9]* "." [0-9]+ ([eE] [-+]? [0-9]+)?) { return { type: "Literal", value: parseFloat(text()) }; }
+// [修复] FloatLiteral: 支持 "2." 或 ".5" 格式
+FloatLiteral
+  = chars:(
+      ( [0-9]+ "." [0-9]* ([eE] [-+]? [0-9]+)? )
+    / ( "." [0-9]+ ([eE] [-+]? [0-9]+)? )
+    ) { return { type: "Literal", value: parseFloat(text()) }; }
+
 IntLiteral    = chars:([0-9]+) { return { type: "Literal", value: parseInt(text(), 10) }; }
 BoolLiteral   = ("true" / "false") { return { type: "Literal", value: text() === "true" }; }
 NaLiteral     = "na" { return { type: "Literal", value: null }; }
@@ -479,7 +484,6 @@ ColorLiteral  = "#" [0-9a-fA-F]+ { return { type: "Literal", kind: "color", valu
 // ------------------------------------------
 
 INDENT = "    " / "\t"
-// [新增] 额外缩进：匹配 INDENT 的倍数（而非任意空格）
 ExtraIndents = INDENT*
 
 SAMELINE_WS = [ \t]*
@@ -493,7 +497,6 @@ EOL = SAMELINE_WS LineTerminatorSequence
 EOS 
   = _ (";" / (Comment? LineTerminatorSequence) / (Comment? EOF))
 
-// [修复] BlockSeparator: 使用 ExtraIndents 替换 _，确保严格缩进
 BlockSeparator 
   = (SAMELINE_WS LineTerminatorSequence)* INDENT ExtraIndents
 
