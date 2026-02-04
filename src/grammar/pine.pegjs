@@ -1,6 +1,6 @@
 {{
   // =========================================================
-  // Pine Script v6 Grammar (Final Fix: +Break/Continue)
+  // Pine Script v6 Grammar (Final Fix: Multiline Function Calls)
   // =========================================================
 
   function extractList(list, index) {
@@ -66,7 +66,7 @@ ImportPath
     { return user + "/" + lib + "/" + v; }
 
 ScriptDeclaration
-  = type:("indicator" / "strategy" / "library") _ "(" _ args:ArgumentList? _ ")" EOS
+  = type:("indicator" / "strategy" / "library") _ "(" __ args:ArgumentList? __ ")" EOS
     { return { type: "ScriptDeclaration", scriptType: type, args: args || [] }; }
 
 // ==========================================
@@ -80,8 +80,8 @@ Statement
   = CommentStatement    
   / BlockStatement      
   / ExportStatement     
-  / BreakStatement      // [新增] break
-  / ContinueStatement   // [新增] continue
+  / BreakStatement      
+  / ContinueStatement   
   / TypeDeclaration     
   / EnumDeclaration     
   / MethodDeclaration   
@@ -92,7 +92,7 @@ Statement
   / ControlStructure    
   / ExpressionStatement 
 
-// --- [新增] 循环控制语句 ---
+// --- 循环控制语句 ---
 BreakStatement
   = "break" EOS { return { type: "BreakStatement" }; }
 
@@ -134,11 +134,11 @@ AssignmentOperator
   = ":=" / "+=" / "-=" / "*=" / "/=" / "%="
 
 TupleDeclaration
-  = "[" _ elements:TupleElementList _ "]" _ "=" _ init:Expression EOS
+  = "[" __ elements:TupleElementList __ "]" _ "=" _ init:Expression EOS
     { return { type: "TupleDeclaration", elements: elements, init: init }; }
 
 TupleElementList
-  = head:(Identifier / "_") tail:(_ "," _ (Identifier / "_"))* { return [head].concat(extractList(tail, 3)); }
+  = head:(Identifier / "_") tail:(__ "," __ (Identifier / "_"))* { return [head].concat(extractList(tail, 3)); }
 
 // --- 2.2 结构定义 ---
 
@@ -165,11 +165,11 @@ EnumField
     { return { key: id, title: title ? title[2] : null }; }
 
 FunctionDeclaration
-  = id:Identifier _ "(" _ params:ParameterList? _ ")" _ "=>" _ body:FunctionBody
+  = id:Identifier _ "(" __ params:ParameterList? __ ")" _ "=>" _ body:FunctionBody
     { return { type: "FunctionDeclaration", id: id, params: params || [], body: body }; }
 
 MethodDeclaration
-  = "method" _ id:Identifier _ "(" _ params:ParameterList? _ ")" _ "=>" _ body:FunctionBody
+  = "method" _ id:Identifier _ "(" __ params:ParameterList? __ ")" _ "=>" _ body:FunctionBody
     { return { type: "MethodDeclaration", id: id, params: params || [], body: body }; }
 
 ExportStatement
@@ -177,7 +177,7 @@ ExportStatement
     { stmt.exported = true; return stmt; }
 
 ParameterList
-  = head:Parameter tail:(_ "," _ Parameter)* { return [head].concat(extractList(tail, 3)); }
+  = head:Parameter tail:(__ "," __ Parameter)* { return [head].concat(extractList(tail, 3)); }
 
 Parameter
   = type:(TypeAnnotation _)? id:Identifier _ def:("=" _ Expression)?
@@ -235,8 +235,6 @@ BlockOrLine
   / _ "=>" _ ScopeBlock
   / _ expr:Expression EOS { return { type: "Block", body: [expr] }; }
 
-// --- 2.4 块与缩进 ---
-
 ScopeBlock
   = EOL INDENT statements:StatementListDedent 
     { return { type: "Block", body: statements }; }
@@ -289,16 +287,20 @@ UnaryExpression
     { return { type: "UnaryExpression", operator: operator, argument: argument }; }
   / PrimaryExpression
 
+// --- 链式调用与多行支持 (Fix: Use __ instead of _) ---
+
 PrimaryExpression
   = head:Atom
     tail:(
         _ "." _ id:IdentifierName { 
             return { type: "MemberPart", id: id }; 
         }
-      / _ "[" _ idx:Expression _ "]" { 
+        // [ index ] 允许内部换行
+      / _ "[" __ idx:Expression __ "]" { 
             return { type: "IndexPart", index: idx }; 
         }
-      / _ "(" _ args:ArgumentList? _ ")" { 
+        // ( args ) 允许内部换行
+      / _ "(" __ args:ArgumentList? __ ")" { 
             return { type: "CallPart", args: args || [] }; 
         }
     )*
@@ -320,11 +322,13 @@ Atom
   / Identifier
   / "(" _ expression:Expression _ ")" { return expression; }
 
+// 参数列表允许换行
 ArgumentList
-  = head:Argument tail:(_ "," _ Argument)* { return [head].concat(extractList(tail, 3)); }
+  = head:Argument tail:(__ "," __ Argument)* { return [head].concat(extractList(tail, 3)); }
 
 Argument
-  = name:(IdentifierName _ "=")? _ value:Expression
+  // 参数赋值也允许换行
+  = name:(IdentifierName __ "=")? __ value:Expression
     { return { name: name ? name[0] : null, value: value }; }
 
 // ==========================================
