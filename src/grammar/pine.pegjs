@@ -1,6 +1,6 @@
 {{
   // =========================================================
-  // Pine Script v6 Grammar (Final Fix: Imports Anywhere)
+  // Pine Script v6 Grammar (Fixed: Additive Expression Newline)
   // =========================================================
 
   function extractList(list, index) {
@@ -83,7 +83,7 @@ Statement
 ComplexStatement
   = CommentStatement    
   / BlockStatement      
-  / ImportStatement    // [修复] 允许 import 出现在语句列表中
+  / ImportStatement    
   / ExportStatement     
   / BreakStatement      
   / ContinueStatement   
@@ -360,8 +360,10 @@ EqualityExpression
 RelationalExpression
   = head:AdditiveExpression tail:(__ (">=" / "<=" / ">" / "<") __ AdditiveExpression)* { return buildBinary(head, tail); }
 
+// [FIXED] Changed first __ to _ to prevent greedily consuming newlines before +/-
+// This fixes parsing ambiguity between binary subtraction and unary minus on new lines.
 AdditiveExpression
-  = head:MultiplicativeExpression tail:(__ ("+" / "-") __ MultiplicativeExpression)* { return buildBinary(head, tail); }
+  = head:MultiplicativeExpression tail:(_ ("+" / "-") __ MultiplicativeExpression)* { return buildBinary(head, tail); }
 
 MultiplicativeExpression
   = head:UnaryExpression tail:(__ ("*" / "/" / "%") __ UnaryExpression)* { return buildBinary(head, tail); }

@@ -353,3 +353,10 @@ switch
 
 import userName/Point/1 as pt 
 pt.point newPoint = pt.point.new() 
+
+for change in intrabarChanges
+    // Add the `change` to `positiveChange` if its sign is 1, and add to `negativeChange` if its sign is -1.
+    switch math.sign(change)
+        1  => positiveChange += change
+        -1 => negativeChange += change
+
