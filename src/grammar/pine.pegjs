@@ -1,6 +1,6 @@
 {{
   // =========================================================
-  // Pine Script v6 Grammar (Final Fix: Argument Ambiguity)
+  // Pine Script v6 Grammar (Final Fix: Multi-line Assignments)
   // =========================================================
 
   function extractList(list, index) {
@@ -77,6 +77,10 @@ StatementList
   = head:Statement tail:(__ Statement)* { return [head].concat(extractList(tail, 1)); }
 
 Statement
+  = ComplexStatement
+  / StatementLine
+
+ComplexStatement
   = CommentStatement    
   / BlockStatement      
   / ExportStatement     
@@ -86,55 +90,73 @@ Statement
   / EnumDeclaration     
   / MethodDeclaration   
   / FunctionDeclaration 
-  / TupleDeclaration
-  / VariableDeclaration 
-  / AssignmentStatement 
   / ControlStructure    
-  / ExpressionStatement 
+  / VariableDeclaration_Struct  
+  / AssignmentStatement_Struct  
+  / TupleDeclaration_Struct     
 
-// --- 循环控制语句 ---
+StatementLine
+  = head:SimpleStatement tail:(_ "," _ SimpleStatement)* EOS
+    {
+      if (tail.length === 0) return head;
+      var tailStmts = tail.map(function(t) { return t[3]; });
+      return { type: "Block", body: [head].concat(tailStmts) };
+    }
+
+SimpleStatement
+  = VariableDeclaration_Expr    
+  / AssignmentStatement_Expr    
+  / TupleDeclaration_Expr       
+  / ExpressionStatement         
+
+// --- 基础语句类型 ---
+
 BreakStatement
   = "break" EOS { return { type: "BreakStatement" }; }
 
 ContinueStatement
   = "continue" EOS { return { type: "ContinueStatement" }; }
 
-// --- 注释语句 ---
 CommentStatement
   = c:Comment EOS
     { return { type: "CommentStatement", value: c }; }
 
-// --- 2.1 变量声明 ---
+// --- 2.1 变量声明 (支持多行初始化) ---
 
-VariableDeclaration
-  = VarDecl_Full      
-  / VarDecl_ModOnly   
-  / VarDecl_TypeOnly  
-  / VarDecl_Simple    
-
-// 1. Modifiers + Type + ID
-VarDecl_Full
-  = mods:StorageModifiers __ type:TypeAnnotation __ id:Identifier _ "=" _ init:Initializer
-    { return { type: "VariableDeclaration", modifiers: mods, valueType: type, id: id, init: init }; }
-
-// 2. Modifiers + ID
-VarDecl_ModOnly
-  = mods:StorageModifiers __ id:Identifier _ "=" _ init:Initializer
+// Case A: 表达式初始化
+// [修复] 将 "=" 后的 _ 改为 __，允许换行
+VariableDeclaration_Expr
+  = mods:StorageModifiers? __ type:TypeAnnotation? __ id:Identifier _ "=" __ init:Expression
+    { 
+      return { 
+        type: "VariableDeclaration", 
+        modifiers: mods ? mods[0] : null, 
+        valueType: type ? type[0] : null, 
+        id: id, 
+        init: init 
+      }; 
+    }
+  / mods:StorageModifiers __ id:Identifier _ "=" __ init:Expression
     { return { type: "VariableDeclaration", modifiers: mods, valueType: null, id: id, init: init }; }
-
-// 3. Type + ID
-VarDecl_TypeOnly
-  = type:TypeAnnotation __ id:Identifier _ "=" _ init:Initializer
-    { return { type: "VariableDeclaration", modifiers: null, valueType: type, id: id, init: init }; }
-
-// 4. Simple ID
-VarDecl_Simple
-  = id:Identifier _ "=" _ init:Initializer
+  / id:Identifier _ "=" __ init:Expression
     { return { type: "VariableDeclaration", modifiers: null, valueType: null, id: id, init: init }; }
 
-Initializer
-  = c:ControlStructure { return c; }
-  / e:Expression EOS { return e; }
+// Case B: 结构初始化
+VariableDeclaration_Struct
+  = mods:StorageModifiers? __ type:TypeAnnotation? __ id:Identifier _ "=" __ init:ControlStructure
+    { 
+      return { 
+        type: "VariableDeclaration", 
+        modifiers: mods ? mods[0] : null, 
+        valueType: type ? type[0] : null, 
+        id: id, 
+        init: init 
+      }; 
+    }
+  / mods:StorageModifiers __ id:Identifier _ "=" __ init:ControlStructure
+    { return { type: "VariableDeclaration", modifiers: mods, valueType: null, id: id, init: init }; }
+  / id:Identifier _ "=" __ init:ControlStructure
+    { return { type: "VariableDeclaration", modifiers: null, valueType: null, id: id, init: init }; }
 
 StorageModifiers
   = p:PersistenceMode __ q:TypeQualifier 
@@ -150,15 +172,29 @@ PersistenceMode
 TypeQualifier
   = ("const" / "simple" / "series") !IdentifierPart { return text(); }
 
-AssignmentStatement
-  = left:PrimaryExpression _ op:AssignmentOperator _ val:Initializer
+// --- 赋值语句 (支持多行) ---
+
+// [修复] 将 op 后的 _ 改为 __
+AssignmentStatement_Expr
+  = left:PrimaryExpression _ op:AssignmentOperator __ val:Expression
+    { return { type: "AssignmentExpression", operator: op, left: left, right: val }; }
+
+AssignmentStatement_Struct
+  = left:PrimaryExpression _ op:AssignmentOperator __ val:ControlStructure
     { return { type: "AssignmentExpression", operator: op, left: left, right: val }; }
 
 AssignmentOperator
   = ":=" / "+=" / "-=" / "*=" / "/=" / "%="
 
-TupleDeclaration
-  = pattern:TuplePattern _ "=" _ init:Initializer
+// --- 元组声明 (支持多行) ---
+
+// [修复] 将 "=" 后的 _ 改为 __
+TupleDeclaration_Expr
+  = pattern:TuplePattern _ "=" __ init:Expression
+    { return { type: "TupleDeclaration", elements: pattern.elements, init: init }; }
+
+TupleDeclaration_Struct
+  = pattern:TuplePattern _ "=" __ init:ControlStructure
     { return { type: "TupleDeclaration", elements: pattern.elements, init: init }; }
 
 TuplePattern
@@ -177,8 +213,9 @@ TypeDeclaration
 TypeFields
   = head:TypeField tail:(EOL TypeField)* { return [head].concat(extractList(tail, 1)); }
 
+// [修复] TypeField: 允许默认值换行
 TypeField
-  = INDENT type:TypeAnnotation _ id:Identifier _ def:("=" _ Initializer)?
+  = INDENT type:TypeAnnotation _ id:Identifier _ def:("=" __ Expression)?
     { return { name: id, type: type, default: def ? def[2] : null }; }
 
 EnumDeclaration
@@ -218,10 +255,11 @@ Parameter
       }; 
     }
 
+// [修复] ParameterCore: 允许默认值换行
 ParameterCore
-  = type:TypeAnnotation __ &Identifier id:Identifier _ def:("=" _ Expression)?
+  = type:TypeAnnotation __ &Identifier id:Identifier _ def:("=" __ Expression)?
     { return { type: type, id: id, default: def ? def[2] : null }; }
-  / id:Identifier _ def:("=" _ Expression)?
+  / id:Identifier _ def:("=" __ Expression)?
     { return { type: null, id: id, default: def ? def[2] : null }; }
 
 FunctionBody
@@ -229,23 +267,8 @@ FunctionBody
   / _ body:InlineSeries EOS { return { type: "Block", body: body }; }
 
 InlineSeries
-  = head:InlineItem tail:(_ "," _ InlineItem)*
+  = head:SimpleStatement tail:(_ "," _ SimpleStatement)*
     { return [head].concat(extractList(tail, 3)); }
-
-InlineItem
-  = InlineVarDecl
-  / InlineAssignment
-  / Expression
-
-InlineVarDecl
-  = type:TypeAnnotation __ id:Identifier _ "=" _ init:Expression
-    { return { type: "VariableDeclaration", valueType: type, id: id, init: init }; }
-  / id:Identifier _ "=" _ init:Expression
-    { return { type: "VariableDeclaration", valueType: null, id: id, init: init }; }
-
-InlineAssignment
-  = left:PrimaryExpression _ op:AssignmentOperator _ val:Expression
-    { return { type: "AssignmentExpression", operator: op, left: left, right: val }; }
 
 // --- 2.3 控制流 ---
 
@@ -312,7 +335,7 @@ BlockStatement
   = ScopeBlock
 
 ExpressionStatement
-  = expr:Expression EOS 
+  = expr:Expression
     { return { type: "ExpressionStatement", expression: expr }; }
 
 // ==========================================
@@ -402,7 +425,6 @@ ArrayElements
 ArgumentList
   = head:Argument tail:(__ "," __ Argument)* { return [head].concat(extractList(tail, 3)); }
 
-// [修复] Argument: 增加 !"=" 检查，防止将 "==" 解析为命名参数
 Argument
   = name:(IdentifierName __ "=" !"=")? __ value:Expression
     { return { name: name ? name[0] : null, value: value }; }

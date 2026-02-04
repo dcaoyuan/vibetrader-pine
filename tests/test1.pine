@@ -336,3 +336,14 @@ bgcolor(bgColor, title = "Background highlight")
 strategy.entry("Entry", direction == 1 ? strategy.long : strategy.short)
 
 
+matrix<float> pricesMatrix = matrix.new<float>(), pricesMatrix.add_row(0, pricesArray), pricesMatrix.reshape(2, 2)
+
+string formatString = 
+     "Apostrophes in formatting strings signify quoted character sequences, which do not have special meaning."
+     + "\n\nQuoting a placeholder includes its characters literally: '{0}'"
+     + "\n\nInserting the apostrophe character from arguments does *not* create quoted sequences: {1}{0}{1}" 
+  
+  
+
+
+
