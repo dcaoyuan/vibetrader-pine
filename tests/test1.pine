@@ -202,3 +202,12 @@ int fastLength = 7
 // Returns 1 if the argument is `true`, 0 if it is `false` or `na`.
 zeroOne(boolValue) => boolValue ? 1 : 0
 
+// ==============
+// Note that the [] operator can only be used once on the same value. This is not allowed:
+// close[1][2] // Error: incorrect use of [] operator
+
+switch
+    // Compiler warning! Will not calculate correctly!
+    longCondition  => strategy.entry("Long ID", strategy.long)
+    shortCondition => strategy.entry("Short ID", strategy.short)
+    

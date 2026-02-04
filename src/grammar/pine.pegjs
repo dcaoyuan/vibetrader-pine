@@ -1,6 +1,6 @@
 {{
   // =========================================================
-  // Pine Script v6 Grammar (Final Fix: Function Parameter Ambiguity)
+  // Pine Script v6 Grammar (Final Fix: Switch Comments)
   // =========================================================
 
   function extractList(list, index) {
@@ -203,7 +203,6 @@ ExportStatement
 ParameterList
   = head:Parameter tail:(__ "," __ Parameter)* { return [head].concat(extractList(tail, 3)); }
 
-// [修复] 参数解析：明确区分 "Type ID" 和 "ID"
 Parameter
   = qual:(TypeQualifier __)? core:ParameterCore
     { 
@@ -216,11 +215,8 @@ Parameter
     }
 
 ParameterCore
-  // Case 1: 显式类型 (例如: int x, MyType y)
-  // 使用 &Identifier 确保类型后面紧跟着参数名，防止贪婪匹配
   = type:TypeAnnotation __ &Identifier id:Identifier _ def:("=" _ Expression)?
     { return { type: type, id: id, default: def ? def[2] : null }; }
-  // Case 2: 仅参数名 (例如: x, y)
   / id:Identifier _ def:("=" _ Expression)?
     { return { type: null, id: id, default: def ? def[2] : null }; }
 
@@ -247,12 +243,14 @@ SwitchStatement
     cases:SwitchCaseList
     { return { type: "SwitchStatement", discriminant: discriminant, cases: cases }; }
 
+// [修复] SwitchCaseList: 允许 case 之间（包括第一个 case 之前）存在注释
 SwitchCaseList
-  = head:SwitchCase tail:(CaseSeparator SwitchCase)*
+  = intro:CaseSeparator head:SwitchCase tail:(CaseSeparator SwitchCase)*
     { return [head].concat(extractList(tail, 1)); }
 
+// [修复] CaseSeparator: 允许空行 或 注释行
 CaseSeparator
-  = (SAMELINE_WS LineTerminatorSequence)*
+  = (SAMELINE_WS Comment? LineTerminatorSequence)*
 
 SwitchCase
   = INDENT tests:ExpressionList _ "=>" _ body:BlockOrLine
