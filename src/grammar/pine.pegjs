@@ -1,6 +1,6 @@
 {{
   // =========================================================
-  // Pine Script v6 Grammar (Final Fix: Modifiers & Qualifiers)
+  // Pine Script v6 Grammar (Final Fix: String Escaping)
   // =========================================================
 
   function extractList(list, index) {
@@ -104,35 +104,34 @@ CommentStatement
   = c:Comment EOS
     { return { type: "CommentStatement", value: c }; }
 
-// --- 2.1 变量声明与赋值 (核心重构) ---
+// --- 2.1 变量声明与赋值 ---
 
 VariableDeclaration
-  = VarDecl_Full      // Mods + Type + ID (e.g. "var simple float x = ...")
-  / VarDecl_ModOnly   // Mods + ID        (e.g. "var x = ...", "const x = ...")
-  / VarDecl_TypeOnly  // Type + ID        (e.g. "float x = ...")
-  / VarDecl_Simple    // ID               (e.g. "x = ...")
+  = VarDecl_Full      
+  / VarDecl_ModOnly   
+  / VarDecl_TypeOnly  
+  / VarDecl_Simple    
 
 // 1. Modifiers + Type + ID
 VarDecl_Full
   = mods:StorageModifiers __ type:TypeAnnotation __ id:Identifier _ "=" _ init:Expression EOS
     { return { type: "VariableDeclaration", modifiers: mods, valueType: type, id: id, init: init }; }
 
-// 2. Modifiers + ID (Type inferred)
+// 2. Modifiers + ID
 VarDecl_ModOnly
   = mods:StorageModifiers __ id:Identifier _ "=" _ init:Expression EOS
     { return { type: "VariableDeclaration", modifiers: mods, valueType: null, id: id, init: init }; }
 
-// 3. Type + ID (No Modifiers)
+// 3. Type + ID
 VarDecl_TypeOnly
   = type:TypeAnnotation __ id:Identifier _ "=" _ init:Expression EOS
     { return { type: "VariableDeclaration", modifiers: null, valueType: type, id: id, init: init }; }
 
-// 4. Simple ID (No Modifiers, No Type)
+// 4. Simple ID
 VarDecl_Simple
   = id:Identifier _ "=" _ init:Expression EOS
     { return { type: "VariableDeclaration", modifiers: null, valueType: null, id: id, init: init }; }
 
-// 修饰符组合逻辑 (e.g. "var simple", "simple", "var")
 StorageModifiers
   = p:PersistenceMode __ q:TypeQualifier 
     { return { persistence: p, qualifier: q }; }
@@ -338,7 +337,6 @@ PrimaryExpression
 
 Atom
   = Literal
-  // 允许 PrimitiveType 作为表达式原子 (用于 float(), int() 等类型转换调用)
   / PrimitiveType { return { type: "Identifier", name: text() }; }
   / Identifier
   / "(" _ expression:Expression _ ")" { return expression; }
@@ -376,6 +374,7 @@ IdentifierName
 IdentifierPart
   = [a-zA-Z0-9_]
 
+// [重写] 字符串解析：支持转义字符
 Literal
   = FloatLiteral
   / IntLiteral
@@ -384,12 +383,32 @@ Literal
   / ColorLiteral
   / NaLiteral
 
+StringLiteral
+  = '"' chars:DoubleStringChar* '"' { return { type: "Literal", value: chars.join("") }; }
+  / "'" chars:SingleStringChar* "'" { return { type: "Literal", value: chars.join("") }; }
+
+DoubleStringChar
+  = !('"' / "\\" / LineTerminator) c:. { return c; }
+  / "\\" esc:EscapeSequence { return esc; }
+
+SingleStringChar
+  = !("'" / "\\" / LineTerminator) c:. { return c; }
+  / "\\" esc:EscapeSequence { return esc; }
+
+EscapeSequence
+  = "'"
+  / '"'
+  / "\\"
+  / "n"  { return "\n"; }
+  / "r"  { return "\r"; }
+  / "t"  { return "\t"; }
+  / c:.  { return c; } // 默认处理 (如 \a -> a)
+
 FloatLiteral  = chars:([0-9]* "." [0-9]+ ([eE] [-+]? [0-9]+)?) { return { type: "Literal", value: parseFloat(text()) }; }
 IntLiteral    = chars:([0-9]+) { return { type: "Literal", value: parseInt(text(), 10) }; }
 BoolLiteral   = ("true" / "false") { return { type: "Literal", value: text() === "true" }; }
 NaLiteral     = "na" { return { type: "Literal", value: null }; }
 ColorLiteral  = "#" [0-9a-fA-F]+ { return { type: "Literal", kind: "color", value: text() }; }
-StringLiteral = ('"' [^"\n\r]* '"' / "'" [^'\n\r]* "'") { return { type: "Literal", value: text().slice(1, -1) }; }
 
 // ------------------------------------------
 // 缩进与空白
