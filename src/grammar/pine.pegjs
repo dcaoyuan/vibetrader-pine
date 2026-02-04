@@ -1,6 +1,6 @@
 {{
   // =========================================================
-  // Pine Script v6 Grammar (Final Fix: Inline Function Decls)
+  // Pine Script v6 Grammar (Final Fix: Blank Lines in Blocks)
   // =========================================================
 
   function extractList(list, index) {
@@ -224,32 +224,25 @@ ParameterCore
   / id:Identifier _ def:("=" _ Expression)?
     { return { type: null, id: id, default: def ? def[2] : null }; }
 
-// [修复] FunctionBody: 支持单行函数中的逗号分隔序列 (InlineSeries)
 FunctionBody
   = ScopeBlock  
   / _ body:InlineSeries EOS { return { type: "Block", body: body }; }
 
-// [新增] 逗号分隔的单行语句序列
 InlineSeries
   = head:InlineItem tail:(_ "," _ InlineItem)*
     { return [head].concat(extractList(tail, 3)); }
 
-// [新增] 单行元素：声明、赋值或表达式
 InlineItem
   = InlineVarDecl
   / InlineAssignment
   / Expression
 
-// [新增] 单行变量声明 (不带 EOS)
 InlineVarDecl
-  // Case 1: 显式类型 (int x = 1)
   = type:TypeAnnotation __ id:Identifier _ "=" _ init:Expression
     { return { type: "VariableDeclaration", valueType: type, id: id, init: init }; }
-  // Case 2: 推断类型 (x = 1)
   / id:Identifier _ "=" _ init:Expression
     { return { type: "VariableDeclaration", valueType: null, id: id, init: init }; }
 
-// [新增] 单行赋值 (x := 1)
 InlineAssignment
   = left:PrimaryExpression _ op:AssignmentOperator _ val:Expression
     { return { type: "AssignmentExpression", operator: op, left: left, right: val }; }
@@ -305,8 +298,11 @@ BlockOrLine
   / _ "=>" _ ScopeBlock
   / _ expr:Expression EOS { return { type: "Block", body: [expr] }; }
 
+// [修复] ScopeBlock: 允许在第一行代码前有空行
+// EOL 消耗 "=>" 后的第一个换行
+// BlockSeparator 消耗后续可能的空行 + 最终的 INDENT
 ScopeBlock
-  = EOL INDENT statements:StatementListDedent 
+  = EOL BlockSeparator statements:StatementListDedent 
     { return { type: "Block", body: statements }; }
 
 StatementListDedent
@@ -377,7 +373,6 @@ PrimaryExpression
         if (part.type === "MemberPart") {
           return { type: "MemberExpression", object: result, property: part.id };
         } else if (part.type === "IndexPart") {
-          // 禁止连续 []
           if (result.type === "ArrayAccess") {
             error("The [] operator can only be used once on the same value.");
           }
@@ -494,7 +489,6 @@ LineTerminator = [\n\r]
 LineTerminatorSequence = "\n" / "\r\n" / "\r"
 EOL = SAMELINE_WS LineTerminatorSequence
 
-// EOS: 允许语句末尾出现注释
 EOS 
   = _ (";" / (Comment? LineTerminatorSequence) / (Comment? EOF))
 
