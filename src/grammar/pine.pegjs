@@ -1,6 +1,6 @@
 {{
   // =========================================================
-  // Pine Script v6 Grammar (Fixed: Parenthesized Newlines)
+  // Pine Script v6 Grammar (Fixed: Split Expression Logic)
   // =========================================================
 
   function extractList(list, index) {
@@ -122,10 +122,10 @@ CommentStatement
   = c:Comment EOS
     { return { type: "CommentStatement", value: c }; }
 
-// --- 2.1 变量声明 ---
+// --- 2.1 变量声明 (Uses Safe Expressions) ---
 
 VariableDeclaration_Expr
-  = mods:StorageModifiers? __ type:TypeAnnotation? __ id:Identifier _ "=" __ init:Expression
+  = mods:StorageModifiers? __ type:TypeAnnotation? __ id:Identifier _ "=" __ init:Expression_Safe
     { 
       return { 
         type: "VariableDeclaration", 
@@ -135,9 +135,9 @@ VariableDeclaration_Expr
         init: init 
       }; 
     }
-  / mods:StorageModifiers __ id:Identifier _ "=" __ init:Expression
+  / mods:StorageModifiers __ id:Identifier _ "=" __ init:Expression_Safe
     { return { type: "VariableDeclaration", modifiers: mods, valueType: null, id: id, init: init }; }
-  / id:Identifier _ "=" __ init:Expression
+  / id:Identifier _ "=" __ init:Expression_Safe
     { return { type: "VariableDeclaration", modifiers: null, valueType: null, id: id, init: init }; }
 
 VariableDeclaration_Struct
@@ -170,10 +170,10 @@ PersistenceMode
 TypeQualifier
   = ("const" / "simple" / "series") !IdentifierPart { return text(); }
 
-// --- 赋值语句 ---
+// --- 赋值语句 (Uses Safe Expressions) ---
 
 AssignmentStatement_Expr
-  = left:PrimaryExpression _ op:AssignmentOperator __ val:Expression
+  = left:PrimaryExpression _ op:AssignmentOperator __ val:Expression_Safe
     { return { type: "AssignmentExpression", operator: op, left: left, right: val }; }
 
 AssignmentStatement_Struct
@@ -183,10 +183,10 @@ AssignmentStatement_Struct
 AssignmentOperator
   = ":=" / "+=" / "-=" / "*=" / "/=" / "%="
 
-// --- 元组声明 ---
+// --- 元组声明 (Uses Safe Expressions) ---
 
 TupleDeclaration_Expr
-  = pattern:TuplePattern _ "=" __ init:Expression
+  = pattern:TuplePattern _ "=" __ init:Expression_Safe
     { return { type: "TupleDeclaration", elements: pattern.elements, init: init }; }
 
 TupleDeclaration_Struct
@@ -264,7 +264,7 @@ InlineSeries
   = head:SimpleStatement tail:(_ "," _ SimpleStatement)*
     { return [head].concat(extractList(tail, 3)); }
 
-// --- 2.3 控制流 ---
+// --- 2.3 控制流 (Uses Safe Expressions) ---
 
 ControlStructure
   = IfStatement
@@ -273,13 +273,13 @@ ControlStructure
   / WhileStatement
 
 IfStatement
-  = "if" _ test:Expression _ body:BlockOrLine
-    elseIfs:(__ "else" _ "if" _ Expression _ BlockOrLine)*
+  = "if" _ test:Expression_Safe _ body:BlockOrLine
+    elseIfs:(__ "else" _ "if" _ Expression_Safe _ BlockOrLine)*
     elseBody:(__ "else" _ BlockOrLine)?
     { return { type: "IfStatement", test: test, consequent: body, alternates: elseIfs, fallback: elseBody }; }
 
 SwitchStatement
-  = "switch" _ discriminant:Expression? _ EOL
+  = "switch" _ discriminant:Expression_Safe? _ EOL
     cases:SwitchCaseList
     { return { type: "SwitchStatement", discriminant: discriminant, cases: cases }; }
 
@@ -291,23 +291,23 @@ CaseSeparator
   = (SAMELINE_WS Comment? LineTerminatorSequence)*
 
 SwitchCase
-  = INDENT ExtraIndents tests:ExpressionList _ "=>" _ body:BlockOrLine
+  = INDENT ExtraIndents tests:ExpressionList_Safe _ "=>" _ body:BlockOrLine
     { return { type: "SwitchCase", tests: tests, consequent: body }; }
   / INDENT ExtraIndents "=>" _ body:BlockOrLine 
     { return { type: "SwitchCase", default: true, consequent: body }; }
 
-ExpressionList
-  = head:Expression tail:(_ "," _ Expression)*
+ExpressionList_Safe
+  = head:Expression_Safe tail:(_ "," _ Expression_Safe)*
     { return [head].concat(extractList(tail, 3)); }
 
 ForStatement
-  = "for" _ counter:Identifier _ "=" _ start:Expression _ "to" _ end:Expression _ step:("by" _ Expression)? _ body:BlockOrLine
+  = "for" _ counter:Identifier _ "=" _ start:Expression_Safe _ "to" _ end:Expression_Safe _ step:("by" _ Expression_Safe)? _ body:BlockOrLine
     { return { type: "ForNumeric", counter: counter, start: start, end: end, step: step, body: body }; }
-  / "for" _ item:(TuplePattern / Identifier) _ "in" _ collection:Expression _ body:BlockOrLine
+  / "for" _ item:(TuplePattern / Identifier) _ "in" _ collection:Expression_Safe _ body:BlockOrLine
     { return { type: "ForIn", item: item, collection: collection, body: body }; }
 
 WhileStatement
-  = "while" _ test:Expression _ body:BlockOrLine
+  = "while" _ test:Expression_Safe _ body:BlockOrLine
     { return { type: "WhileStatement", test: test, body: body }; }
 
 BlockOrLine
@@ -333,12 +333,15 @@ BlockStatement
   = ScopeBlock
 
 ExpressionStatement
-  = expr:Expression
+  = expr:Expression_Safe
     { return { type: "ExpressionStatement", expression: expr }; }
 
 // ==========================================
 // 3. 表达式 (Expressions)
 // ==========================================
+
+// --- Standard Expression (Allows newlines everywhere) ---
+// Used in: Parentheses, Brackets, Function Arguments
 
 Expression
   = ConditionalExpression
@@ -361,7 +364,36 @@ RelationalExpression
   = head:AdditiveExpression tail:(__ (">=" / "<=" / ">" / "<") __ AdditiveExpression)* { return buildBinary(head, tail); }
 
 AdditiveExpression
+  = head:MultiplicativeExpression tail:(__ ("+" / "-") __ MultiplicativeExpression)* { return buildBinary(head, tail); }
+
+// --- Safe Expression (Restricted newlines) ---
+// Used in: Statement Lines (Prevents Switch/Unary ambiguity)
+
+Expression_Safe
+  = ConditionalExpression_Safe
+
+ConditionalExpression_Safe
+  = test:LogicalOrExpression_Safe __ "?" __ consequent:Expression_Safe __ ":" __ alternate:Expression_Safe
+    { return { type: "ConditionalExpression", test: test, consequent: consequent, alternate: alternate }; }
+  / LogicalOrExpression_Safe
+
+LogicalOrExpression_Safe
+  = head:LogicalAndExpression_Safe tail:(__ "or" !IdentifierPart __ LogicalAndExpression_Safe)* { return buildLogical(head, tail); }
+
+LogicalAndExpression_Safe
+  = head:EqualityExpression_Safe tail:(__ "and" !IdentifierPart __ EqualityExpression_Safe)* { return buildLogical(head, tail); }
+
+EqualityExpression_Safe
+  = head:RelationalExpression_Safe tail:(__ ("==" / "!=") __ RelationalExpression_Safe)* { return buildBinary(head, tail); }
+
+RelationalExpression_Safe
+  = head:AdditiveExpression_Safe tail:(__ (">=" / "<=" / ">" / "<") __ AdditiveExpression_Safe)* { return buildBinary(head, tail); }
+
+// [CRITICAL FIX] Only allows SAME-LINE whitespace (_) before + or -
+AdditiveExpression_Safe
   = head:MultiplicativeExpression tail:(_ ("+" / "-") __ MultiplicativeExpression)* { return buildBinary(head, tail); }
+
+// --- Shared (Multiplicative and below are safe) ---
 
 MultiplicativeExpression
   = head:UnaryExpression tail:(__ ("*" / "/" / "%") __ UnaryExpression)* { return buildBinary(head, tail); }
@@ -379,7 +411,7 @@ PrimaryExpression
         _ "." _ id:IdentifierName { 
             return { type: "MemberPart", id: id }; 
         }
-      / _ "[" __ idx:Expression __ "]" { 
+      / _ "[" __ idx:Expression __ "]" { // Array access allows multiline
             return { type: "IndexPart", index: idx }; 
         }
       / _ typeArgs:TypeTemplate? _ "(" __ args:ArgumentList? __ ")" { 
@@ -411,7 +443,7 @@ Atom
   / BracketExpression
   / PrimitiveType { return { type: "Identifier", name: text() }; }
   / Identifier
-  // [FIXED] Changed _ to __ to allow newlines inside parenthesized expressions
+  // [FIX] Parens switch to Standard Expression mode (Allowing multiline math)
   / "(" __ expression:Expression __ ")" { return expression; }
 
 BracketExpression
@@ -425,7 +457,7 @@ ArgumentList
   = head:Argument tail:(__ "," __ Argument)* { return [head].concat(extractList(tail, 3)); }
 
 Argument
-  = name:(IdentifierName __ "=" !"=")? __ value:Expression
+  = name:(IdentifierName __ "=" !"=")? __ value:Expression // Arguments use Standard Expression
     { return { name: name ? name[0] : null, value: value }; }
 
 // ==========================================
