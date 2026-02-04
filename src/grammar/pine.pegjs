@@ -1,6 +1,6 @@
 {{
   // =========================================================
-  // Pine Script v6 Grammar (Final Fix: Namespaced Types)
+  // Pine Script v6 Grammar (Final Fix: Array Literals)
   // =========================================================
 
   function extractList(list, index) {
@@ -86,9 +86,10 @@ Statement
   / EnumDeclaration     
   / MethodDeclaration   
   / FunctionDeclaration 
+  // 注意：TupleDeclaration 必须在 ExpressionStatement 之前
+  / TupleDeclaration
   / VariableDeclaration 
   / AssignmentStatement 
-  / TupleDeclaration    
   / ControlStructure    
   / ExpressionStatement 
 
@@ -325,8 +326,8 @@ PrimaryExpression
       / _ "[" __ idx:Expression __ "]" { 
             return { type: "IndexPart", index: idx }; 
         }
-      / _ "(" __ args:ArgumentList? __ ")" { 
-            return { type: "CallPart", args: args || [] }; 
+      / _ typeArgs:TypeTemplate? _ "(" __ args:ArgumentList? __ ")" { 
+            return { type: "CallPart", args: args || [], typeArgs: typeArgs }; 
         }
     )*
     {
@@ -336,17 +337,30 @@ PrimaryExpression
         } else if (part.type === "IndexPart") {
           return { type: "ArrayAccess", object: result, index: part.index };
         } else if (part.type === "CallPart") {
-          return { type: "CallExpression", callee: result, args: part.args };
+          return { type: "CallExpression", callee: result, args: part.args, typeArgs: part.typeArgs };
         }
         return result;
       }, head);
     }
 
+TypeTemplate
+  = "<" _ t:TypeAnnotation _ ">" { return t; }
+
 Atom
   = Literal
+  // [新增] 数组字面量 / 括号表达式 [1, 2]
+  / BracketExpression
   / PrimitiveType { return { type: "Identifier", name: text() }; }
   / Identifier
   / "(" _ expression:Expression _ ")" { return expression; }
+
+// [新增] 括号表达式规则
+BracketExpression
+  = "[" __ elements:ArrayElements? __ "]"
+    { return { type: "ArrayLiteral", elements: elements || [] }; }
+
+ArrayElements
+  = head:Expression tail:(__ "," __ Expression)* { return [head].concat(extractList(tail, 3)); }
 
 ArgumentList
   = head:Argument tail:(__ "," __ Argument)* { return [head].concat(extractList(tail, 3)); }
@@ -360,11 +374,10 @@ Argument
 // ==========================================
 
 TypeAnnotation
-  = (SimpleType / GenericType) ("[" "]")*
+  = (GenericType / SimpleType) ("[" "]")*
 
 SimpleType
   = PrimitiveType
-  // [修复] 支持命名空间类型 (e.g. chart.point)
   / NamespacedIdentifier
 
 NamespacedIdentifier

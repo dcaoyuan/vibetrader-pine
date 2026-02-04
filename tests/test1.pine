@@ -120,4 +120,15 @@ label.new(
      style = label.style_label_up, textcolor = color.white
  )
 
- 
+
+//@variable References an "int" array with a single element.
+array<int> myIntArray = array.new<int>(1, 10)
+
+//@variable Holds an initial reference of `na`. Can reference an array of "float" values.
+array<float> myFloatArray = na
+
+//@variable References a "float" matrix with two rows and three columns.
+matrix<float> myFloatMatrix = matrix.new<float>(2, 3, 0.0)
+
+a = [sum, product]
+
