@@ -1,6 +1,6 @@
 {{
   // =========================================================
-  // Pine Script v6 Grammar (Final Fix: Array Literals)
+  // Pine Script v6 Grammar (Final Fix: Parameter Qualifiers)
   // =========================================================
 
   function extractList(list, index) {
@@ -86,7 +86,6 @@ Statement
   / EnumDeclaration     
   / MethodDeclaration   
   / FunctionDeclaration 
-  // 注意：TupleDeclaration 必须在 ExpressionStatement 之前
   / TupleDeclaration
   / VariableDeclaration 
   / AssignmentStatement 
@@ -204,9 +203,17 @@ ExportStatement
 ParameterList
   = head:Parameter tail:(__ "," __ Parameter)* { return [head].concat(extractList(tail, 3)); }
 
+// [修复] Parameter 支持 qualifiers (simple/series/const)
 Parameter
-  = type:(TypeAnnotation _)? id:Identifier _ def:("=" _ Expression)?
-    { return { id: id, type: type ? type[0] : null, default: def ? def[2] : null }; }
+  = qual:(TypeQualifier __)? type:(TypeAnnotation __)? id:Identifier _ def:("=" _ Expression)?
+    { 
+      return { 
+        id: id, 
+        qualifier: qual ? qual[0] : null, 
+        type: type ? type[0] : null, 
+        default: def ? def[2] : null 
+      }; 
+    }
 
 FunctionBody
   = ScopeBlock  
@@ -348,13 +355,11 @@ TypeTemplate
 
 Atom
   = Literal
-  // [新增] 数组字面量 / 括号表达式 [1, 2]
   / BracketExpression
   / PrimitiveType { return { type: "Identifier", name: text() }; }
   / Identifier
   / "(" _ expression:Expression _ ")" { return expression; }
 
-// [新增] 括号表达式规则
 BracketExpression
   = "[" __ elements:ArrayElements? __ "]"
     { return { type: "ArrayLiteral", elements: elements || [] }; }
