@@ -1,6 +1,6 @@
 {{
   // =========================================================
-  // Pine Script v6 Grammar (Final Fix: Comma Stmts in Blocks)
+  // Pine Script v6 Grammar (Final Fix: Imports Anywhere)
   // =========================================================
 
   function extractList(list, index) {
@@ -83,6 +83,7 @@ Statement
 ComplexStatement
   = CommentStatement    
   / BlockStatement      
+  / ImportStatement    // [修复] 允许 import 出现在语句列表中
   / ExportStatement     
   / BreakStatement      
   / ContinueStatement   
@@ -309,14 +310,11 @@ WhileStatement
   = "while" _ test:Expression _ body:BlockOrLine
     { return { type: "WhileStatement", test: test, body: body }; }
 
-// [修复] BlockOrLine: 支持 StatementLine (逗号分隔语句)
-// 之前只能匹配单个 Expression，现在可以匹配 a, b, c
 BlockOrLine
   = ScopeBlock
   / _ "=>" _ ScopeBlock
   / _ stmt:StatementLine 
     { 
-      // StatementLine 可能返回 Block (如果是多条语句) 或 单个 Statement
       if (stmt.type === "Block") return stmt;
       return { type: "Block", body: [stmt] };
     }
