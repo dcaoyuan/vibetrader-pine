@@ -1,6 +1,6 @@
 {{
   // =========================================================
-  // Pine Script v6 Grammar (Final Fix: Trailing Dot Floats)
+  // Pine Script v6 Grammar (Final Fix: Operator Boundaries)
   // =========================================================
 
   function extractList(list, index) {
@@ -327,11 +327,12 @@ ConditionalExpression
     { return { type: "ConditionalExpression", test: test, consequent: consequent, alternate: alternate }; }
   / LogicalOrExpression
 
+// [修复] 逻辑运算符增加 !IdentifierPart 确保单词边界 (防止 "ord" 被解析为 "or")
 LogicalOrExpression
-  = head:LogicalAndExpression tail:(__ "or" __ LogicalAndExpression)* { return buildLogical(head, tail); }
+  = head:LogicalAndExpression tail:(__ "or" !IdentifierPart __ LogicalAndExpression)* { return buildLogical(head, tail); }
 
 LogicalAndExpression
-  = head:EqualityExpression tail:(__ "and" __ EqualityExpression)* { return buildLogical(head, tail); }
+  = head:EqualityExpression tail:(__ "and" !IdentifierPart __ EqualityExpression)* { return buildLogical(head, tail); }
 
 EqualityExpression
   = head:RelationalExpression tail:(__ ("==" / "!=") __ RelationalExpression)* { return buildBinary(head, tail); }
@@ -346,8 +347,8 @@ MultiplicativeExpression
   = head:UnaryExpression tail:(__ ("*" / "/" / "%") __ UnaryExpression)* { return buildBinary(head, tail); }
 
 UnaryExpression
-  = operator:("not" / "+" / "-") __ argument:UnaryExpression
-    { return { type: "UnaryExpression", operator: operator, argument: argument }; }
+  = operator:("not" !IdentifierPart / "+" / "-") __ argument:UnaryExpression
+    { return { type: "UnaryExpression", operator: operator[0], argument: argument }; }
   / PrimaryExpression
 
 // --- 链式调用与多行支持 ---
@@ -467,7 +468,6 @@ EscapeSequence
   / "t"  { return "\t"; }
   / c:.  { return c; }
 
-// [修复] FloatLiteral: 支持 "2." 或 ".5" 格式
 FloatLiteral
   = chars:(
       ( [0-9]+ "." [0-9]* ([eE] [-+]? [0-9]+)? )
