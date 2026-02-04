@@ -1,6 +1,6 @@
 {{
   // =========================================================
-  // Pine Script v6 Grammar (Final Fix: Multiline Function Calls)
+  // Pine Script v6 Grammar (Final Fix: Variable Declaration Ambiguity)
   // =========================================================
 
   function extractList(list, index) {
@@ -104,21 +104,31 @@ CommentStatement
   = c:Comment EOS
     { return { type: "CommentStatement", value: c }; }
 
-// --- 2.1 变量声明与赋值 ---
+// --- 2.1 变量声明与赋值 (核心修复) ---
 
 VariableDeclaration
-  = VariableDeclaration_Mode
-  / VariableDeclaration_Typed
-  / VariableDeclaration_Simple
+  = VariableDeclaration_Mode_Typed    // 1. var int x = ...
+  / VariableDeclaration_Mode_Untyped  // 2. var x = ... (修复此处)
+  / VariableDeclaration_Typed         // 3. int x = ...
+  / VariableDeclaration_Simple        // 4. x = ...
 
-VariableDeclaration_Mode
-  = mode:DeclarationMode __ type:TypeAnnotation? _ id:Identifier _ "=" _ init:Expression EOS
+// Case 1: var + Type + ID
+VariableDeclaration_Mode_Typed
+  = mode:DeclarationMode __ type:TypeAnnotation __ id:Identifier _ "=" _ init:Expression EOS
     { return { type: "VariableDeclaration", mode: mode, valueType: type, id: id, init: init }; }
 
+// Case 2: var + ID (无 Type)
+VariableDeclaration_Mode_Untyped
+  = mode:DeclarationMode __ id:Identifier _ "=" _ init:Expression EOS
+    { return { type: "VariableDeclaration", mode: mode, valueType: null, id: id, init: init }; }
+
+// Case 3: Type + ID (无 var)
+// 注意: 这里必须强制 __ 空格，确保 Type 后面跟的是 ID 而不是 "="
 VariableDeclaration_Typed
   = type:TypeAnnotation __ id:Identifier _ "=" _ init:Expression EOS
     { return { type: "VariableDeclaration", mode: null, valueType: type, id: id, init: init }; }
 
+// Case 4: ID only (无 var, 无 Type)
 VariableDeclaration_Simple
   = id:Identifier _ "=" _ init:Expression EOS
     { return { type: "VariableDeclaration", mode: null, valueType: null, id: id, init: init }; }
@@ -287,7 +297,7 @@ UnaryExpression
     { return { type: "UnaryExpression", operator: operator, argument: argument }; }
   / PrimaryExpression
 
-// --- 链式调用与多行支持 (Fix: Use __ instead of _) ---
+// --- 链式调用与多行支持 ---
 
 PrimaryExpression
   = head:Atom
@@ -295,11 +305,9 @@ PrimaryExpression
         _ "." _ id:IdentifierName { 
             return { type: "MemberPart", id: id }; 
         }
-        // [ index ] 允许内部换行
       / _ "[" __ idx:Expression __ "]" { 
             return { type: "IndexPart", index: idx }; 
         }
-        // ( args ) 允许内部换行
       / _ "(" __ args:ArgumentList? __ ")" { 
             return { type: "CallPart", args: args || [] }; 
         }
@@ -322,12 +330,10 @@ Atom
   / Identifier
   / "(" _ expression:Expression _ ")" { return expression; }
 
-// 参数列表允许换行
 ArgumentList
   = head:Argument tail:(__ "," __ Argument)* { return [head].concat(extractList(tail, 3)); }
 
 Argument
-  // 参数赋值也允许换行
   = name:(IdentifierName __ "=")? __ value:Expression
     { return { name: name ? name[0] : null, value: value }; }
 
@@ -382,7 +388,6 @@ LineTerminatorSequence = "\n" / "\r\n" / "\r"
 EOL = SAMELINE_WS LineTerminatorSequence
 EOS = _ (";" / LineTerminatorSequence / EOF)
 
-// BlockSeparator: 允许在 INDENT 之前出现任意数量的空行
 BlockSeparator 
   = (SAMELINE_WS LineTerminatorSequence)* INDENT
 
