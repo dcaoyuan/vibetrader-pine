@@ -343,7 +343,11 @@ string formatString =
      + "\n\nQuoting a placeholder includes its characters literally: '{0}'"
      + "\n\nInserting the apostrophe character from arguments does *not* create quoted sequences: {1}{0}{1}" 
   
-  
 
+
+
+switch
+    ta.change(tfOpen0) > 0 => highs.push(high), lows.push(low), times.push(tfOpen0)
+    times.size() > 0 => highs.set(-1, math.max(highs.last(), high)), lows.set(-1, math.min(lows.last(), low))
 
 

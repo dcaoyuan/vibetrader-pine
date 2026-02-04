@@ -1,6 +1,6 @@
 {{
   // =========================================================
-  // Pine Script v6 Grammar (Final Fix: Multi-line Assignments)
+  // Pine Script v6 Grammar (Final Fix: Comma Stmts in Blocks)
   // =========================================================
 
   function extractList(list, index) {
@@ -121,10 +121,8 @@ CommentStatement
   = c:Comment EOS
     { return { type: "CommentStatement", value: c }; }
 
-// --- 2.1 变量声明 (支持多行初始化) ---
+// --- 2.1 变量声明 ---
 
-// Case A: 表达式初始化
-// [修复] 将 "=" 后的 _ 改为 __，允许换行
 VariableDeclaration_Expr
   = mods:StorageModifiers? __ type:TypeAnnotation? __ id:Identifier _ "=" __ init:Expression
     { 
@@ -141,7 +139,6 @@ VariableDeclaration_Expr
   / id:Identifier _ "=" __ init:Expression
     { return { type: "VariableDeclaration", modifiers: null, valueType: null, id: id, init: init }; }
 
-// Case B: 结构初始化
 VariableDeclaration_Struct
   = mods:StorageModifiers? __ type:TypeAnnotation? __ id:Identifier _ "=" __ init:ControlStructure
     { 
@@ -172,9 +169,8 @@ PersistenceMode
 TypeQualifier
   = ("const" / "simple" / "series") !IdentifierPart { return text(); }
 
-// --- 赋值语句 (支持多行) ---
+// --- 赋值语句 ---
 
-// [修复] 将 op 后的 _ 改为 __
 AssignmentStatement_Expr
   = left:PrimaryExpression _ op:AssignmentOperator __ val:Expression
     { return { type: "AssignmentExpression", operator: op, left: left, right: val }; }
@@ -186,9 +182,8 @@ AssignmentStatement_Struct
 AssignmentOperator
   = ":=" / "+=" / "-=" / "*=" / "/=" / "%="
 
-// --- 元组声明 (支持多行) ---
+// --- 元组声明 ---
 
-// [修复] 将 "=" 后的 _ 改为 __
 TupleDeclaration_Expr
   = pattern:TuplePattern _ "=" __ init:Expression
     { return { type: "TupleDeclaration", elements: pattern.elements, init: init }; }
@@ -213,7 +208,6 @@ TypeDeclaration
 TypeFields
   = head:TypeField tail:(EOL TypeField)* { return [head].concat(extractList(tail, 1)); }
 
-// [修复] TypeField: 允许默认值换行
 TypeField
   = INDENT type:TypeAnnotation _ id:Identifier _ def:("=" __ Expression)?
     { return { name: id, type: type, default: def ? def[2] : null }; }
@@ -255,7 +249,6 @@ Parameter
       }; 
     }
 
-// [修复] ParameterCore: 允许默认值换行
 ParameterCore
   = type:TypeAnnotation __ &Identifier id:Identifier _ def:("=" __ Expression)?
     { return { type: type, id: id, default: def ? def[2] : null }; }
@@ -316,10 +309,17 @@ WhileStatement
   = "while" _ test:Expression _ body:BlockOrLine
     { return { type: "WhileStatement", test: test, body: body }; }
 
+// [修复] BlockOrLine: 支持 StatementLine (逗号分隔语句)
+// 之前只能匹配单个 Expression，现在可以匹配 a, b, c
 BlockOrLine
   = ScopeBlock
   / _ "=>" _ ScopeBlock
-  / _ expr:Expression EOS { return { type: "Block", body: [expr] }; }
+  / _ stmt:StatementLine 
+    { 
+      // StatementLine 可能返回 Block (如果是多条语句) 或 单个 Statement
+      if (stmt.type === "Block") return stmt;
+      return { type: "Block", body: [stmt] };
+    }
 
 ScopeBlock
   = EOL BlockSeparator statements:StatementListDedent 
