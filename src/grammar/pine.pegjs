@@ -1,6 +1,6 @@
 {{
   // =========================================================
-  // Pine Script v6 Grammar (Fixed: EOL Comments)
+  // Pine Script v6 Grammar (Fixed: Strict Line Continuation)
   // =========================================================
 
   function extractList(list, index) {
@@ -340,6 +340,20 @@ ExpressionStatement
 // 3. 表达式 (Expressions)
 // ==========================================
 
+// --- Shared Helper: Safe Expression Separator ---
+// Matches whitespace or comments.
+// If it consumes a newline, it strictly ENFORCES indentation that is NOT a multiple of 4.
+
+ExprSep "valid continuation"
+  = (
+      [ \t]+
+    / Comment
+    / LineTerminatorSequence indent:[ \t]+ &{ return indent.join("").length % 4 !== 0; }
+    )*
+
+// --- Standard Expression (Unsafe/Permissive) ---
+// Used in: Parentheses, Brackets, Function Arguments
+
 Expression
   = ConditionalExpression
 
@@ -363,38 +377,46 @@ RelationalExpression
 AdditiveExpression
   = head:MultiplicativeExpression tail:(__ ("+" / "-") __ MultiplicativeExpression)* { return buildBinary(head, tail); }
 
-// --- Safe Expression (Restricted newlines) ---
-
-Expression_Safe
-  = ConditionalExpression_Safe
-
-ConditionalExpression_Safe
-  = test:LogicalOrExpression_Safe __ "?" __ consequent:Expression_Safe __ ":" __ alternate:Expression_Safe
-    { return { type: "ConditionalExpression", test: test, consequent: consequent, alternate: alternate }; }
-  / LogicalOrExpression_Safe
-
-LogicalOrExpression_Safe
-  = head:LogicalAndExpression_Safe tail:(__ "or" !IdentifierPart __ LogicalAndExpression_Safe)* { return buildLogical(head, tail); }
-
-LogicalAndExpression_Safe
-  = head:EqualityExpression_Safe tail:(__ "and" !IdentifierPart __ EqualityExpression_Safe)* { return buildLogical(head, tail); }
-
-EqualityExpression_Safe
-  = head:RelationalExpression_Safe tail:(__ ("==" / "!=") __ RelationalExpression_Safe)* { return buildBinary(head, tail); }
-
-RelationalExpression_Safe
-  = head:AdditiveExpression_Safe tail:(__ (">=" / "<=" / ">" / "<") __ AdditiveExpression_Safe)* { return buildBinary(head, tail); }
-
-AdditiveExpression_Safe
-  = head:MultiplicativeExpression tail:(_ ("+" / "-") __ MultiplicativeExpression)* { return buildBinary(head, tail); }
-
-// --- Shared ---
-
 MultiplicativeExpression
   = head:UnaryExpression tail:(__ ("*" / "/" / "%") __ UnaryExpression)* { return buildBinary(head, tail); }
 
 UnaryExpression
   = operator:("not" !IdentifierPart / "+" / "-") __ argument:UnaryExpression
+    { return { type: "UnaryExpression", operator: operator[0], argument: argument }; }
+  / PrimaryExpression
+
+// --- Safe Expression (Strict Indentation) ---
+// Used in: Top-level statements (Variable Decl, Assignment, Control flow)
+// This strictly enforces the "Indented but not multiple of 4" rule for continuations.
+
+Expression_Safe
+  = ConditionalExpression_Safe
+
+ConditionalExpression_Safe
+  = test:LogicalOrExpression_Safe ExprSep "?" ExprSep consequent:Expression_Safe ExprSep ":" ExprSep alternate:Expression_Safe
+    { return { type: "ConditionalExpression", test: test, consequent: consequent, alternate: alternate }; }
+  / LogicalOrExpression_Safe
+
+LogicalOrExpression_Safe
+  = head:LogicalAndExpression_Safe tail:(ExprSep "or" !IdentifierPart ExprSep LogicalAndExpression_Safe)* { return buildLogical(head, tail); }
+
+LogicalAndExpression_Safe
+  = head:EqualityExpression_Safe tail:(ExprSep "and" !IdentifierPart ExprSep EqualityExpression_Safe)* { return buildLogical(head, tail); }
+
+EqualityExpression_Safe
+  = head:RelationalExpression_Safe tail:(ExprSep ("==" / "!=") ExprSep RelationalExpression_Safe)* { return buildBinary(head, tail); }
+
+RelationalExpression_Safe
+  = head:AdditiveExpression_Safe tail:(ExprSep (">=" / "<=" / ">" / "<") ExprSep AdditiveExpression_Safe)* { return buildBinary(head, tail); }
+
+AdditiveExpression_Safe
+  = head:MultiplicativeExpression_Safe tail:(ExprSep ("+" / "-") ExprSep MultiplicativeExpression_Safe)* { return buildBinary(head, tail); }
+
+MultiplicativeExpression_Safe
+  = head:UnaryExpression_Safe tail:(ExprSep ("*" / "/" / "%") ExprSep UnaryExpression_Safe)* { return buildBinary(head, tail); }
+
+UnaryExpression_Safe
+  = operator:("not" !IdentifierPart / "+" / "-") ExprSep argument:UnaryExpression_Safe
     { return { type: "UnaryExpression", operator: operator[0], argument: argument }; }
   / PrimaryExpression
 
@@ -438,6 +460,7 @@ Atom
   / BracketExpression
   / PrimitiveType { return { type: "Identifier", name: text() }; }
   / Identifier
+  // Inside parentheses, we switch back to the Permissive Expression (allows arbitrary newlines)
   / "(" __ expression:Expression __ ")" { return expression; }
 
 BracketExpression
@@ -540,7 +563,6 @@ WhiteSpace = [ \t]
 LineTerminator = [\n\r]
 LineTerminatorSequence = "\n" / "\r\n" / "\r"
 
-// [FIXED] EOL now allows an optional Comment before the newline
 EOL = SAMELINE_WS Comment? LineTerminatorSequence
 
 EOS 

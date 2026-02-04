@@ -405,3 +405,9 @@ else
 type LCG        // Type declarations do not require profiling.
     float state
 
+a = open + high + low +
+ close
+
+// following code should be invalid with no indent space as contune line
+//a = open + high + low +
+//close
