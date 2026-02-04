@@ -1,6 +1,6 @@
 {{
   // =========================================================
-  // Pine Script v6 Grammar (Final Fix: Operator Boundaries)
+  // Pine Script v6 Grammar (Final Fix: Comments before Else)
   // =========================================================
 
   function extractList(list, index) {
@@ -255,10 +255,11 @@ ControlStructure
   / ForStatement
   / WhileStatement
 
+// [修复] IfStatement: 在 else 分支前使用 __ (允许空行/注释)
 IfStatement
   = "if" _ test:Expression _ body:BlockOrLine
-    elseIfs:(_ "else" _ "if" _ Expression _ BlockOrLine)*
-    elseBody:(_ "else" _ BlockOrLine)?
+    elseIfs:(__ "else" _ "if" _ Expression _ BlockOrLine)*
+    elseBody:(__ "else" _ BlockOrLine)?
     { return { type: "IfStatement", test: test, consequent: body, alternates: elseIfs, fallback: elseBody }; }
 
 SwitchStatement
@@ -327,7 +328,6 @@ ConditionalExpression
     { return { type: "ConditionalExpression", test: test, consequent: consequent, alternate: alternate }; }
   / LogicalOrExpression
 
-// [修复] 逻辑运算符增加 !IdentifierPart 确保单词边界 (防止 "ord" 被解析为 "or")
 LogicalOrExpression
   = head:LogicalAndExpression tail:(__ "or" !IdentifierPart __ LogicalAndExpression)* { return buildLogical(head, tail); }
 

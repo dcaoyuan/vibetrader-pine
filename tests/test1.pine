@@ -309,4 +309,11 @@ plot(nextLevel(factorInput))
 a = 0
 order = 1
 
+if time[1] < orderTime and time >= orderTime
+    exitLine  := line.new(bar_index, exitPrice, bar_index + 1, exitPrice, color = color.red, width = 2)
+// Update lines while the position is open.
+else if strategy.position_size > 0.0
+    entryLine.set_x2(bar_index + 1)
+
+
 
