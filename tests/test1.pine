@@ -360,3 +360,8 @@ for change in intrabarChanges
         1  => positiveChange += change
         -1 => negativeChange += change
 
+
+[pocHigh, pocLow, vaHigh, vaLow] = if (
+    time >= chart.left_visible_bar_time and time <= chart.right_visible_bar_time and not na(reqFootprint)
+)
+    array<volume_row> volumeRowsArray = reqFootprint.rows()

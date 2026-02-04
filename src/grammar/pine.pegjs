@@ -1,6 +1,6 @@
 {{
   // =========================================================
-  // Pine Script v6 Grammar (Fixed: Additive Expression Newline)
+  // Pine Script v6 Grammar (Fixed: Parenthesized Newlines)
   // =========================================================
 
   function extractList(list, index) {
@@ -360,8 +360,6 @@ EqualityExpression
 RelationalExpression
   = head:AdditiveExpression tail:(__ (">=" / "<=" / ">" / "<") __ AdditiveExpression)* { return buildBinary(head, tail); }
 
-// [FIXED] Changed first __ to _ to prevent greedily consuming newlines before +/-
-// This fixes parsing ambiguity between binary subtraction and unary minus on new lines.
 AdditiveExpression
   = head:MultiplicativeExpression tail:(_ ("+" / "-") __ MultiplicativeExpression)* { return buildBinary(head, tail); }
 
@@ -413,7 +411,8 @@ Atom
   / BracketExpression
   / PrimitiveType { return { type: "Identifier", name: text() }; }
   / Identifier
-  / "(" _ expression:Expression _ ")" { return expression; }
+  // [FIXED] Changed _ to __ to allow newlines inside parenthesized expressions
+  / "(" __ expression:Expression __ ")" { return expression; }
 
 BracketExpression
   = "[" __ elements:ArrayElements? __ "]"
