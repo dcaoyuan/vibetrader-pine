@@ -1,6 +1,6 @@
 {{
   // =========================================================
-  // Pine Script v6 Grammar (Fixed: Scientific Notation Support)
+  // Pine Script v6 Grammar (Fixed: Identifier-Type Overlap)
   // =========================================================
 
   function extractList(list, index) {
@@ -524,7 +524,6 @@ EscapeSequence
   / "t"  { return "\t"; }
   / c:.  { return c; }
 
-// [FIXED] FloatLiteral now correctly handles scientific notation for integers (e.g., 1e12)
 FloatLiteral
   = chars:(
       ( [0-9]+ "." [0-9]* ([eE] [-+]? [0-9]+)? )
@@ -564,7 +563,6 @@ Comment
 
 ReservedWord
   = Keyword
-  / PrimitiveType
   / LiteralKeyword
 
 Keyword
