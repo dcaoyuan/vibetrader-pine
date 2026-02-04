@@ -1,6 +1,6 @@
 {{
   // =========================================================
-  // Pine Script v6 Grammar (Final Fix: Member Assignment)
+  // Pine Script v6 Grammar (Final Fix: Trailing Comments)
   // =========================================================
 
   function extractList(list, index) {
@@ -150,7 +150,6 @@ PersistenceMode
 TypeQualifier
   = ("const" / "simple" / "series") !IdentifierPart { return text(); }
 
-// [修复] 赋值语句：左侧允许 PrimaryExpression (覆盖 Identifier, MemberExpression, ArrayAccess)
 AssignmentStatement
   = left:PrimaryExpression _ op:AssignmentOperator _ val:Initializer
     { return { type: "AssignmentExpression", operator: op, left: left, right: val }; }
@@ -441,6 +440,10 @@ BoolLiteral   = ("true" / "false") { return { type: "Literal", value: text() ===
 NaLiteral     = "na" { return { type: "Literal", value: null }; }
 ColorLiteral  = "#" [0-9a-fA-F]+ { return { type: "Literal", kind: "color", value: text() }; }
 
+// ------------------------------------------
+// 缩进与空白
+// ------------------------------------------
+
 INDENT = "    " / "\t"
 SAMELINE_WS = [ \t]*
 _  = [ \t]*
@@ -449,7 +452,13 @@ WhiteSpace = [ \t]
 LineTerminator = [\n\r]
 LineTerminatorSequence = "\n" / "\r\n" / "\r"
 EOL = SAMELINE_WS LineTerminatorSequence
-EOS = _ (";" / LineTerminatorSequence / EOF)
+
+// [修复] EOS: 允许语句末尾出现注释
+// 1. ";" 分号结束
+// 2. Comment? LineTerminatorSequence (行末注释 + 换行)
+// 3. Comment? EOF (行末注释 + 文件结束)
+EOS 
+  = _ (";" / (Comment? LineTerminatorSequence) / (Comment? EOF))
 
 BlockSeparator 
   = (SAMELINE_WS LineTerminatorSequence)* INDENT
