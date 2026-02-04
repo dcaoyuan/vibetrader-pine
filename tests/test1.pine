@@ -258,3 +258,14 @@ if barstate.islastconfirmedhistory
          x = bar_index, y = 0, text = displayText, color = color.green, textcolor = color.white, 
          size = size.huge, textalign = text.align_left, style = label.style_label_center
      )
+
+
+//@function Calculates the z-score of a `source` series over `length` bars.
+zScore(float source, int length) => mean = ta.sma(source, length), sd = ta.stdev(source, length), (source - mean) / sd
+
+//@variable The 20-bar z-score of `close` values.
+float osc = zScore(close, 20)
+
+// Plot the `osc` series as color-coded columns.
+plot(osc, "Z-score", osc > 0 ? color.green : color.red, style = plot.style_columns)
+
