@@ -1,6 +1,6 @@
 {{
   // =========================================================
-  // Pine Script v6 Grammar (Fixed: Exported Constants)
+  // Pine Script v6 Grammar (Fixed: Documentation Annotations)
   // =========================================================
 
   function extractList(list, index) {
@@ -232,7 +232,6 @@ MethodDeclaration
   = "method" _ id:Identifier _ "(" __ params:ParameterList? __ ")" _ "=>" _ body:FunctionBody
     { return { type: "MethodDeclaration", id: id, params: params || [], body: body }; }
 
-// [FIXED] Added VariableDeclaration_Expr to the possible exported statements
 ExportStatement
   = "export" _ stmt:(MethodDeclaration / FunctionDeclaration / TypeDeclaration / EnumDeclaration / VariableDeclaration_Expr)
     { stmt.exported = true; return stmt; }
@@ -366,7 +365,7 @@ EqualityExpression
   = head:RelationalExpression tail:(__ ("==" / "!=") __ RelationalExpression)* { return buildBinary(head, tail); }
 
 RelationalExpression
-  = head:AdditiveExpression tail:(__ (">=" / "<=" / ">" / "<") __ AdditiveExpression)* { return buildBinary(head, tail); }
+  = head:AdditiveExpression tail:(__ (">=" / "<=" / ">" / "<") __ AdditiveExpression)* { buildBinary(head, tail); }
 
 AdditiveExpression
   = head:MultiplicativeExpression tail:(__ ("+" / "-") __ MultiplicativeExpression)* { return buildBinary(head, tail); }
@@ -561,8 +560,21 @@ EOS
 BlockSeparator 
   = (SAMELINE_WS LineTerminatorSequence)* INDENT ExtraIndents
 
+// [FIXED] Comment now recognizes and captures documentation annotations
 Comment
-  = "//" text:(!LineTerminator .)* { return text.map(t => t[1]).join(""); }
+  = "//" text:(Annotation / (!LineTerminator .))* { 
+      return {
+        type: "Comment",
+        content: text.map(t => typeof t === 'string' ? t : t.value || t[1]).join("")
+      };
+    }
+
+// New rule to match Pine Script @annotations
+Annotation
+  = "@" key:(
+      "description" / "enum" / "field" / "function" / "param" / 
+      "returns" / "strategy_alert_message" / "type" / "variable" / "version="
+    ) { return { type: "Annotation", key: key }; }
 
 ReservedWord
   = Keyword
