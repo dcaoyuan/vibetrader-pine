@@ -1,6 +1,6 @@
 {{
   // =========================================================
-  // Pine Script v6 Grammar (Fixed: 'na' vs Identifier Prefix)
+  // Pine Script v6 Grammar (Fixed: Exported Constants)
   // =========================================================
 
   function extractList(list, index) {
@@ -232,8 +232,9 @@ MethodDeclaration
   = "method" _ id:Identifier _ "(" __ params:ParameterList? __ ")" _ "=>" _ body:FunctionBody
     { return { type: "MethodDeclaration", id: id, params: params || [], body: body }; }
 
+// [FIXED] Added VariableDeclaration_Expr to the possible exported statements
 ExportStatement
-  = "export" _ stmt:(MethodDeclaration / FunctionDeclaration / TypeDeclaration / EnumDeclaration)
+  = "export" _ stmt:(MethodDeclaration / FunctionDeclaration / TypeDeclaration / EnumDeclaration / VariableDeclaration_Expr)
     { stmt.exported = true; return stmt; }
 
 ParameterList
@@ -534,7 +535,6 @@ FloatLiteral
 IntLiteral    = chars:([0-9]+) { return { type: "Literal", value: parseInt(text(), 10) }; }
 BoolLiteral   = ("true" / "false") { return { type: "Literal", value: text() === "true" }; }
 
-// [FIXED] Added !IdentifierPart to prevent 'na' from matching prefixes of identifiers like 'name'
 NaLiteral     = "na" !IdentifierPart { return { type: "Literal", value: null }; }
 
 ColorLiteral  = "#" [0-9a-fA-F]+ { return { type: "Literal", kind: "color", value: text() }; }
@@ -570,7 +570,7 @@ ReservedWord
 
 Keyword
   = ("if" / "else" / "for" / "while" / "switch" / "return" / "break" / "continue" / 
-     "var" / "varip" / "import" / "export" / "method" / "type" / "enum") !IdentifierPart
+     "var" / "varip" / "import" / "export" / "method" / "type" / "enum" / "const") !IdentifierPart
 
 LiteralKeyword
   = ("true" / "false" / "na" / "and" / "or" / "not") !IdentifierPart
