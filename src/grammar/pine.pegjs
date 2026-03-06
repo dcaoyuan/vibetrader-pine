@@ -35,7 +35,7 @@
 }}
 
 // ==========================================
-// 1. 程序结构
+// 1. Program Structure
 // ==========================================
 
 Start
@@ -70,7 +70,7 @@ ScriptDeclaration
     { return { type: "ScriptDeclaration", scriptType: type, args: args || [] }; }
 
 // ==========================================
-// 2. 语句 (Statements)
+// 2. Statements
 // ==========================================
 
 StatementList
@@ -110,7 +110,7 @@ SimpleStatement
   / TupleDeclaration_Expr       
   / ExpressionStatement         
 
-// --- 基础语句类型 ---
+// --- Basic Statement Types ---
 
 BreakStatement
   = "break" EOS { return { type: "BreakStatement" }; }
@@ -122,7 +122,7 @@ CommentStatement
   = c:Comment EOS
     { return { type: "CommentStatement", value: c }; }
 
-// --- 2.1 变量声明 ---
+// --- 2.1 Variable Declarations ---
 
 VariableDeclaration_Expr
   = mods:StorageModifiers? __ type:TypeAnnotation? __ id:Identifier _ "=" __ init:Expression_Safe
@@ -170,7 +170,7 @@ PersistenceMode
 TypeQualifier
   = ("const" / "simple" / "series") !IdentifierPart { return text(); }
 
-// --- 赋值语句 ---
+// --- Assignment Statements ---
 
 AssignmentStatement_Expr
   = left:PrimaryExpression _ op:AssignmentOperator __ val:Expression_Safe
@@ -183,7 +183,7 @@ AssignmentStatement_Struct
 AssignmentOperator
   = ":=" / "+=" / "-=" / "*=" / "/=" / "%="
 
-// --- 元组声明 ---
+// --- Tuple Declarations ---
 
 TupleDeclaration_Expr
   = pattern:TuplePattern _ "=" __ init:Expression_Safe
@@ -200,7 +200,7 @@ TuplePattern
 TupleElementList
   = head:(Identifier / "_") tail:(__ "," __ (Identifier / "_"))* { return [head].concat(extractList(tail, 3)); }
 
-// --- 2.2 结构定义 ---
+// --- 2.2 Structure Definitions ---
 
 TypeDeclaration
   = "type" _ id:Identifier EOL fields:TypeFields
@@ -264,7 +264,7 @@ InlineSeries
   = head:SimpleStatement tail:(_ "," _ SimpleStatement)*
     { return [head].concat(extractList(tail, 3)); }
 
-// --- 2.3 控制流 ---
+// --- 2.3 Control Flow ---
 
 ControlStructure
   = IfStatement
@@ -337,7 +337,7 @@ ExpressionStatement
     { return { type: "ExpressionStatement", expression: expr }; }
 
 // ==========================================
-// 3. 表达式 (Expressions)
+// 3. Expressions
 // ==========================================
 
 ExprSep "valid continuation"
@@ -464,7 +464,7 @@ Argument
     { return { name: name ? name[0] : null, value: value }; }
 
 // ==========================================
-// 4. 词法规则 (Lexical Rules)
+// 4. Lexical Rules
 // ==========================================
 
 TypeAnnotation
@@ -540,7 +540,7 @@ NaLiteral     = "na" !IdentifierPart { return { type: "Literal", value: null }; 
 ColorLiteral  = "#" [0-9a-fA-F]+ { return { type: "Literal", kind: "color", value: text() }; }
 
 // ------------------------------------------
-// 缩进与空白
+// Indentation and Whitespace
 // ------------------------------------------
 
 INDENT = "    " / "\t"
