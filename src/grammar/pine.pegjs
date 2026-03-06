@@ -1,6 +1,6 @@
 {{
   // =========================================================
-  // Pine Script v6 Grammar (Fixed: Documentation Annotations)
+  // Pine Script v6 Grammar (Fixed: Arrays, Spaces, AST Data)
   // =========================================================
 
   function extractList(list, index) {
@@ -129,8 +129,8 @@ VariableDeclaration_Expr
     { 
       return { 
         type: "VariableDeclaration", 
-        modifiers: mods ? mods[0] : null, 
-        valueType: type ? type[0] : null, 
+        modifiers: mods ? mods : null, 
+        valueType: type ? type : null, 
         id: id, 
         init: init 
       }; 
@@ -145,8 +145,8 @@ VariableDeclaration_Struct
     { 
       return { 
         type: "VariableDeclaration", 
-        modifiers: mods ? mods[0] : null, 
-        valueType: type ? type[0] : null, 
+        modifiers: mods ? mods : null, 
+        valueType: type ? type : null, 
         id: id, 
         init: init 
       }; 
@@ -342,9 +342,9 @@ ExpressionStatement
 
 ExprSep "valid continuation"
   = (
-      [ \t]+
+      [ \t\xA0]+
     / Comment
-    / LineTerminatorSequence indent:[ \t]+ &{ return indent.join("").length % 4 !== 0; }
+    / LineTerminatorSequence indent:[ \t\xA0]+ &{ return indent.join("").length % 4 !== 0; }
     )*
 
 Expression
@@ -468,7 +468,8 @@ Argument
 // ==========================================
 
 TypeAnnotation
-  = (GenericType / SimpleType) ("[" "]")*
+  = base:(GenericType / SimpleType) brackets:(__ "[" __ "]")*
+    { return base + brackets.map(function() { return "[]"; }).join(""); }
 
 SimpleType
   = PrimitiveType
@@ -545,10 +546,10 @@ ColorLiteral  = "#" [0-9a-fA-F]+ { return { type: "Literal", kind: "color", valu
 INDENT = "    " / "\t"
 ExtraIndents = INDENT*
 
-SAMELINE_WS = [ \t]*
-_  = [ \t]*
+SAMELINE_WS = [ \t\xA0]*
+_  = [ \t\xA0]*
 __ = (WhiteSpace / LineTerminatorSequence / Comment)*
-WhiteSpace = [ \t]
+WhiteSpace = [ \t\xA0]
 LineTerminator = [\n\r]
 LineTerminatorSequence = "\n" / "\r\n" / "\r"
 
