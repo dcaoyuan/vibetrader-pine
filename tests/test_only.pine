@@ -423,3 +423,6 @@ x = 1e12
 a = name
 
 export const float SILVER_RATIO = 1.0 + math.sqrt(2)
+
+var float   [] a_php = array.new_float   ()
+
