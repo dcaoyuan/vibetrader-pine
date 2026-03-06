@@ -7,25 +7,46 @@ import { parse } from '../src/parser';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-describe('ESM File Reading Test - Multiple Files', () => {
+describe('File Reading Test - Multiple Files', () => {
     const testCases = [
         { fileName: 'test_only.pine', expected: 'expected content ...' },
-        { fileName: 'code1.pine', expected: 'expected content ...' },
-        { fileName: 'code2.pine', expected: 'expected content ...' },
-        { fileName: 'code3.pine', expected: 'expected content ...' }
     ];
 
-
-    it.each(testCases)('reads $fileName correctly', ({ fileName, expected }) => {
-        const filePath = path.join(__dirname, fileName);
+    it.each(testCases)(`parses $fileName`, ({ fileName, expected }) => {
+        const filePath = path.join(__dirname, 'pines', fileName);
         const content = fs.readFileSync(filePath, 'utf-8');
 
         expect(() => {
             const ast = parse(content);
             const json = JSON.stringify(ast, null, 2);
 
-            console.log(json);
+            // console.log(json);
 
         }).not.toThrow();
+
+    });
+});
+
+
+describe('Dynamic Folder Reading Test', () => {
+    const pinesDirPath = path.join(__dirname, 'pines');
+    const allFiles = fs.readdirSync(pinesDirPath);
+
+    const pineFiles = allFiles.filter(file => file.endsWith('.pine'));
+
+    pineFiles.forEach((fileName) => {
+        it(`parses ${fileName}`, () => {
+            const filePath = path.join(pinesDirPath, fileName);
+
+            const content = fs.readFileSync(filePath, 'utf-8');
+
+            expect(() => {
+                const ast = parse(content);
+                const json = JSON.stringify(ast, null, 2);
+
+                // console.log(json);
+            }).not.toThrow();
+        });
+
     });
 });
