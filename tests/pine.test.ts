@@ -16,14 +16,8 @@ describe('File Reading Test - Multiple Files', () => {
         const filePath = path.join(__dirname, 'pines', fileName);
         const content = fs.readFileSync(filePath, 'utf-8');
 
-        expect(() => {
-            const ast = parse(content);
-            const json = JSON.stringify(ast, null, 2);
-
-            // console.log(json);
-
-        }).not.toThrow();
-
+        const ast = parse(content);
+        expect(ast).toMatchSnapshot();
     });
 });
 
@@ -40,12 +34,8 @@ describe('Dynamic Folder Reading Test', () => {
 
             const content = fs.readFileSync(filePath, 'utf-8');
 
-            expect(() => {
-                const ast = parse(content);
-                const json = JSON.stringify(ast, null, 2);
-
-                // console.log(json);
-            }).not.toThrow();
+            const ast = parse(content);
+            expect(ast).toMatchSnapshot();
         });
 
     });
