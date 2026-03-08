@@ -514,7 +514,7 @@ function peg$parse(input, options) {
   function peg$f57(head, tail) {    return buildLogical(head, tail);  }
   function peg$f58(head, tail) {    return buildLogical(head, tail);  }
   function peg$f59(head, tail) {    return buildBinary(head, tail);  }
-  function peg$f60(head, tail) {    return buildBinary(head, tail);  }
+  function peg$f60(head, tail) {    buildBinary(head, tail);  }
   function peg$f61(head, tail) {    return buildBinary(head, tail);  }
   function peg$f62(head, tail) {    return buildBinary(head, tail);  }
   function peg$f63(operator, argument) {    return { type: "UnaryExpression", operator: operator[0], argument: argument };  }
@@ -556,7 +556,7 @@ function peg$parse(input, options) {
   function peg$f79(elements) {    return { type: "ArrayLiteral", elements: elements || [] };  }
   function peg$f80(head, tail) {    return [head].concat(extractList(tail, 3));  }
   function peg$f81(head, tail) {    return [head].concat(extractList(tail, 3));  }
-  function peg$f82(name, value) {    return { name: name ? name[0] : null, value: value };  }
+  function peg$f82(name, value) { console.log('peg$f82 called with:', name, value);    return { name: name ? name[0] : null, value: value };  }
   function peg$f83(base, brackets) {    return base + brackets.map(function() { return "[]"; }).join("");  }
   function peg$f84(head, tail) {    
           if (tail.length === 0) return head;
@@ -3729,7 +3729,8 @@ function peg$parse(input, options) {
     return s0;
   }
 
-  function peg$parseConditionalExpression() {
+  function peg$parseConditionalExpression() { const res = _peg$parseConditionalExpression(); console.log('peg$parseConditionalExpression returned:', res); return res; }
+function _peg$parseConditionalExpression() {
     let s0, s1, s2, s3, s4, s5, s6, s7, s8, s9;
 
     s0 = peg$currPos;

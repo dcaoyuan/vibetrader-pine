@@ -365,7 +365,7 @@ EqualityExpression
   = head:RelationalExpression tail:(__ ("==" / "!=") __ RelationalExpression)* { return buildBinary(head, tail); }
 
 RelationalExpression
-  = head:AdditiveExpression tail:(__ (">=" / "<=" / ">" / "<") __ AdditiveExpression)* { buildBinary(head, tail); }
+  = head:AdditiveExpression tail:(__ (">=" / "<=" / ">" / "<") __ AdditiveExpression)* { return buildBinary(head, tail); }
 
 AdditiveExpression
   = head:MultiplicativeExpression tail:(__ ("+" / "-") __ MultiplicativeExpression)* { return buildBinary(head, tail); }
